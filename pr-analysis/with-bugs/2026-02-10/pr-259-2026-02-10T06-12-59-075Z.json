@@ -1,0 +1,75 @@
+{
+  "prId": 259,
+  "repoFullName": "smart_eco-platform/api-integration-aws",
+  "prTitle": "feat(cdc/consents): refactor consent data extraction with deep search functionality",
+  "timestamp": "2026-02-10T06:12:59.075Z",
+  "filterStats": {
+    "total": 1,
+    "included": 1,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "packages/functions/src/cdc/consents/index.ts",
+      "diff": "diff --git a/packages/functions/src/cdc/consents/index.ts b/packages/functions/src/cdc/consents/index.ts\nindex 37dfcb2..45e91f6 100644\n--- a/packages/functions/src/cdc/consents/index.ts\n+++ b/packages/functions/src/cdc/consents/index.ts\n@@ -10,17 +10,39 @@ import {\n   GetConsentsQueryParamsSchema,\n } from './schema';\n \n-interface CustomDataItem {\n+interface ConsentItem {\n   key: string;\n   value: string;\n }\n-const extractNameFromCustomData = (customData: CustomDataItem[]): string => {\n-  if (!customData || !Array.isArray(customData)) return ``;\n \n-  const nameData = customData.find(\n-    (item: CustomDataItem) => item?.key === `Name`,\n-  );\n-  return nameData?.value || ``;\n+/**\n+ * Deep search for isConsentGranted nodes and extract parent key-value pairs\n+ * @param obj - The object to search in\n+ * @param parentKey - The parent key for tracking hierarchy\n+ * @returns Array of consent items with parent key as name and isConsentGranted value\n+ */\n+const findConsentItems = (obj: any, parentKey: string = ``): ConsentItem[] => {\n+  let results: ConsentItem[] = [];\n+\n+  if (!obj || typeof obj !== `object`) return results;\n+\n+  // Check if current object has isConsentGranted property\n+  if (obj.hasOwnProperty(`isConsentGranted`)) {\n+    results.push({\n+      key: parentKey,\n+      value: obj.isConsentGranted,\n+    });\n+  }\n+\n+  // Recursively search in nested objects\n+  for (const [key, value] of Object.entries(obj)) {\n+    if (typeof value === `object` && value !== null) {\n+      const newParentKey = parentKey ? `${parentKey}.${key}` : key;\n+      results = results.concat(findConsentItems(value, newParentKey));\n+    }\n+  }\n+\n+  return results;\n };\n \n const handler = ApiHandler(async (event) => {\n@@ -84,38 +106,16 @@ const handler = ApiHandler(async (event) => {\n     subscriptions: accountData.subscriptions\n       ? Object.entries(accountData.subscriptions).map(\n           ([key, value]: [string, any]) => ({\n-            Name: key,\n-            isSubscribed: deepFind(value, `isSubscribed`)\n-              .map((item) =>\n-                Array.isArray(item) ? item.join(``) : item?.toString() || ``,\n-              )\n-              .join(``),\n+            name: key,\n+            isSubscribed: deepFind(value, `isSubscribed`)[0],\n           }),\n         )\n       : [],\n     preferences: accountData.preferences\n-      ? Object.entries(accountData.preferences).map(\n-          ([_key, value]: [string, any]) => {\n-            const customDataArrays = deepFind(value, `customData`);\n-            let name = ``;\n-\n-            for (const customData of customDataArrays) {\n-              if (Array.isArray(customData)) {\n-                name = extractNameFromCustomData(customData);\n-                if (name) break;\n-              }\n-            }\n-            const isConsentGrantedValues = deepFind(value, `isConsentGranted`);\n-            const isConsentGranted = isConsentGrantedValues\n-              .map((item) => item?.toString() || ``)\n-              .join(``);\n-\n-            return {\n-              Name: name,\n-              isConsentGranted,\n-            };\n-          },\n-        )\n+      ? findConsentItems(accountData.preferences).map((item) => ({\n+          name: item.key,\n+          isConsentGranted: item.value,\n+        }))\n       : [],\n   };\n \n@@ -124,5 +124,4 @@ const handler = ApiHandler(async (event) => {\n     'response-data': formattedResponse,\n   });\n });\n-\n export const main = middyfy(handler);\n",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 4225,
+      "full_content_excerpt": "@@ L1-L63 @@\n1|import {getAccountInfo, searchAccounts} from '@api-integration-aws/core/index';\n2|import {deepFind} from '@api-integration-aws/core/util/utilities';\n3|import {formatResponse} from '@smart/feature-app/node';\n4|import {ApiHandler} from 'sst/node/api';\n5|import {middyfy} from '../../middleware/middy';\n6|import {parseEvent} from '../../utils/parse-event';\n7|import {\n8|  ConsentsAuthHeadersSchema,\n9|  ConsentsHeadersSchema,\n10|  GetConsentsQueryParamsSchema,\n11|} from './schema';\n12|\n13|interface ConsentItem {\n14|  key: string;\n15|  value: string;\n16|}\n17|\n18|/**\n19| * Deep search for isConsentGranted nodes and extract parent key-value pairs\n20| * @param obj - The object to search in\n21| * @param parentKey - The parent key for tracking hierarchy\n22| * @returns Array of consent items with parent key as name and isConsentGranted value\n23| */\n24|const findConsentItems = (obj: any, parentKey: string = ``): ConsentItem[] => {\n25|  let results: ConsentItem[] = [];\n26|\n27|  if (!obj || typeof obj !== `object`) return results;\n28|\n29|  // Check if current object has isConsentGranted property\n30|  if (obj.hasOwnProperty(`isConsentGranted`)) {\n31|    results.push({\n32|      key: parentKey,\n33|      value: obj.isConsentGranted,\n34|    });\n35|  }\n36|\n37|  // Recursively search in nested objects\n38|  for (const [key, value] of Object.entries(obj)) {\n39|    if (typeof value === `object` && value !== null) {\n40|      const newParentKey = parentKey ? `${parentKey}.${key}` : key;\n41|      results = results.concat(findConsentItems(value, newParentKey));\n42|    }\n43|  }\n44|\n45|  return results;\n46|};\n47|\n48|const handler = ApiHandler(async (event) => {\n49|  let headerSchema;\n50|  if (event.rawPath.includes(`/v1/customer-consent`)) {\n51|    headerSchema = ConsentsHeadersSchema;\n52|  } else {\n53|    headerSchema = ConsentsAuthHeadersSchema;\n54|  }\n55|\n56|  const {headersData, queryParamsData} = parseEvent(event, {\n57|    HeadersSchema: headerSchema,\n58|    QueryParamsSchema: GetConsentsQueryParamsSchema,\n59|  });\n60|\n61|  let accountData;\n62|  let accountType = queryParamsData.accountType;\n63|  const xChannel = headersData[`x-channel`]?.toUpperCase();\n@@ L91-L128 @@\n91|      throw new Error(`No Result Found for given input.`);\n92|    }\n93|  } else {\n94|    const response = await getAccountInfo({\n95|      UID: queryParamsData.uuid || ``,\n96|      include: `loginIDs,emails,profile,data,lastLoginLocation,regSource,rba,subscriptions,preferences,groups`,\n97|      extraProfileFields: `languages,address,phones,education,educationLevel,honors,publications,patents,certifications,professionalHeadline,bio,industry,specialities,work,skills,religion,politicalView,interestedIn,relationshipStatus,hometown,favorites,followersCount,followingCount,username,name,locale,verified,timezone,likes,samlData`,\n98|      httpStatusCodes: true,\n99|    });\n100|    accountData = response || {};\n101|  }\n102|\n103|  const formattedResponse = {\n104|    UID: accountData.UID,\n105|    email: accountData.profile?.email,\n106|    subscriptions: accountData.subscriptions\n107|      ? Object.entries(accountData.subscriptions).map(\n108|          ([key, value]: [string, any]) => ({\n109|            name: key,\n110|            isSubscribed: deepFind(value, `isSubscribed`)[0],\n111|          }),\n112|        )\n113|      : [],\n114|    preferences: accountData.preferences\n115|      ? findConsentItems(accountData.preferences).map((item) => ({\n116|          name: item.key,\n117|          isConsentGranted: item.value,\n118|        }))\n119|      : [],\n120|  };\n121|\n122|  return formatResponse(200, {\n123|    'code': 200,\n124|    'response-data': formattedResponse,\n125|  });\n126|});\n127|export const main = middyfy(handler);\n128|",
+      "full_content_truncated": true
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "gemini-3-flash-preview",
+      "elapsedMs": 47116,
+      "promptTokens": 3749,
+      "responseTokens": null,
+      "totalTokens": 11157,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": 6529,
+      "source": "usageMetadata"
+    }
+  ],
+  "analysis": {
+    "summary": "The refactor introduces several high-severity breaking changes to the API contract, including property renaming and data type mismatches that will break existing consumers.",
+    "bugs": [
+      {
+        "title": "Breaking API Change: Property Renaming",
+        "filePath": "packages/functions/src/cdc/consents/index.ts",
+        "lineHint": "Line 109",
+        "description": "The response properties 'Name' in both the subscriptions and preferences arrays have been renamed to 'name' (lowercase).",
+        "risk": "This is a breaking change for all API consumers. Any frontend or downstream service expecting the PascalCase 'Name' property will receive 'undefined', leading to broken UI labels or logic errors.",
+        "codeSnippet": "-            Name: key,\n-            isSubscribed: deepFind(value, `isSubscribed`)\n...\n+            name: key,\n+            isSubscribed: deepFind(value, `isSubscribed`)[0],"
+      },
+      {
+        "title": "Functional Regression: isSubscribed Type Mismatch and Undefined Risk",
+        "filePath": "packages/functions/src/cdc/consents/index.ts",
+        "lineHint": "Line 110",
+        "description": "The logic for 'isSubscribed' changed from a guaranteed string (concatenated result) to the raw first element of 'deepFind'. If the field is missing, it now returns 'undefined' instead of an empty string. If present, it likely returns a boolean instead of the expected string.",
+        "risk": "Consumers expecting a string (e.g., comparing against 'true') will fail when receiving a boolean. Additionally, returning 'undefined' for missing fields may violate the expected API schema, causing crashes in strict consumers.",
+        "codeSnippet": "-            isSubscribed: deepFind(value, `isSubscribed`)\n-              .map((item) =>\n-                Array.isArray(item) ? item.join(``) : item?.toString() || ``,\n-              )\n-              .join(``),\n+            isSubscribed: deepFind(value, `isSubscribed`)[0],"
+      },
+      {
+        "title": "Breaking Change: isConsentGranted Type Mismatch",
+        "filePath": "packages/functions/src/cdc/consents/index.ts",
+        "lineHint": "Line 117",
+        "description": "Similar to isSubscribed, 'isConsentGranted' was previously forced to a string. The new 'findConsentItems' returns the raw value (likely a boolean) from the CDC object.",
+        "risk": "Existing consumers expecting a string representation of the consent status will face type mismatch errors. The ConsentItem interface also incorrectly declares 'value' as a string while the logic assigns raw (likely boolean) objects to it.",
+        "codeSnippet": "     preferences: accountData.preferences\n-      ? Object.entries(accountData.preferences).map(\n...\n+      ? findConsentItems(accountData.preferences).map((item) => ({\n+          name: item.key,\n+          isConsentGranted: item.value,\n+        }))"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Consent Name Source Change",
+        "reason": "The shift from extracting names from 'customData' to using the JSON path is noted as a 'deep search' refactor in the PR title, suggesting this behavior change is an intentional feature of the new implementation."
+      },
+      {
+        "topic": "Array Recursion in findConsentItems",
+        "reason": "While searching arrays with Object.entries results in numeric indices in the path (e.g., 'item.0'), this is technically correct behavior for a generic deep search and depends on whether the CDC data structure contains arrays in the preferences block."
+      }
+    ]
+  }
+}

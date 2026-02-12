@@ -1,0 +1,69 @@
+{
+  "prId": 585,
+  "repoFullName": "smart_eco-platform/my-account-feature-app",
+  "prTitle": "feat: add personal vat check",
+  "timestamp": "2026-02-05T07:27:38.864Z",
+  "filterStats": {
+    "total": 4,
+    "included": 4,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "src/bff/personal-details/edit/index.ts",
+      "diff": "diff --git a/src/bff/personal-details/edit/index.ts b/src/bff/personal-details/edit/index.ts\nindex 853722a4..13c0e375 100644\n--- a/src/bff/personal-details/edit/index.ts\n+++ b/src/bff/personal-details/edit/index.ts\n@@ -8,6 +8,7 @@ import {\n import type {APIGatewayProxyHandler, APIGatewayProxyResult} from 'aws-lambda';\n import axios from 'axios';\n import z from 'zod';\n+import {checkPersonalVAT} from '../../../utils';\n import {getApiEndpoint, getApiHeaders} from '../../utils/api-endpoint';\n import {decodeEventBody} from '../../utils/aws-event';\n import {handleError} from '../../utils/error-handler';\n@@ -31,10 +32,9 @@ export const handler: APIGatewayProxyHandler = async (\n     )\n     .superRefine((values, ctx) => {\n       if (values.vat && languageTag) {\n-        const isValidVat = validatePersonalVatNumbers(\n-          languageTag as LanguageTag,\n-          values.vat,\n-        );\n+        const isValidVat =\n+          validatePersonalVatNumbers(languageTag as LanguageTag, values.vat) ||\n+          checkPersonalVAT(languageTag as LanguageTag, values.vat);\n         if (!isValidVat) {\n           ctx.addIssue({\n             code: z.ZodIssueCode.custom,",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 5129,
+      "full_content_excerpt": "@@ L1-L55 @@\n1|import {getBaseSiteId} from '@smart/locale-service';\n2|import type {LanguageTag} from '@smart/types';\n3|import {\n4|  parseAdbContextCookie,\n5|  parseLoginUserDetailsCookie,\n6|  validatePersonalVatNumbers,\n7|} from '@smart/utils';\n8|import type {APIGatewayProxyHandler, APIGatewayProxyResult} from 'aws-lambda';\n9|import axios from 'axios';\n10|import z from 'zod';\n11|import {checkPersonalVAT} from '../../../utils';\n12|import {getApiEndpoint, getApiHeaders} from '../../utils/api-endpoint';\n13|import {decodeEventBody} from '../../utils/aws-event';\n14|import {handleError} from '../../utils/error-handler';\n15|import {isMockError, simulateDelay} from '../../utils/mocks';\n16|import {coerceQueryParams} from '../coerce-query-params';\n17|import {bodyParamsZodSchema} from './coerce-body-params';\n18|\n19|export const handler: APIGatewayProxyHandler = async (\n20|  event,\n21|  {awsRequestId},\n22|): Promise<APIGatewayProxyResult> => {\n23|  const queryParams = coerceQueryParams(event.queryStringParameters || {});\n24|  const {mock, envName, marketId, languageTag} = queryParams;\n25|  const bodyParams = JSON.parse(decodeEventBody(event) || `{}`);\n26|\n27|  const personalDetailsChange = bodyParamsZodSchema\n28|    .and(\n29|      z.object({\n30|        vat: z.optional(z.string()),\n31|      }),\n32|    )\n33|    .superRefine((values, ctx) => {\n34|      if (values.vat && languageTag) {\n35|        const isValidVat =\n36|          validatePersonalVatNumbers(languageTag as LanguageTag, values.vat) ||\n37|          checkPersonalVAT(languageTag as LanguageTag, values.vat);\n38|        if (!isValidVat) {\n39|          ctx.addIssue({\n40|            code: z.ZodIssueCode.custom,\n41|            message: `Invalid VAT number for the selected market`,\n42|          });\n43|        }\n44|      }\n45|    })\n46|    .parse(bodyParams);\n47|\n48|  if (!personalDetailsChange) {\n49|    return {\n50|      statusCode: 400,\n51|      headers: {'X-Lambda-Request-Id': awsRequestId},\n52|      body: `missing or invalid POST body`,\n53|    };\n54|  }\n55|",
+      "full_content_truncated": true
+    },
+    {
+      "file": "src/feature-app/components/PersonalDetails/VatNumberEdit.tsx",
+      "diff": "diff --git a/src/feature-app/components/PersonalDetails/VatNumberEdit.tsx b/src/feature-app/components/PersonalDetails/VatNumberEdit.tsx\nindex d272abf2..1fb4928e 100644\n--- a/src/feature-app/components/PersonalDetails/VatNumberEdit.tsx\n+++ b/src/feature-app/components/PersonalDetails/VatNumberEdit.tsx\n@@ -6,6 +6,7 @@ import {\n import {Icon, TextInput, Tooltip} from '@smart/web-components';\n import React, {useContext, useEffect, useRef, useState} from 'react';\n import {PersonalDetailsI18nKeys} from '../../../../generated/i18n/PersonalDetails';\n+import {checkPersonalVAT} from '../../../utils';\n import {UsedFeatureFlags} from '../../constants/common';\n import {useAppModelLoggedInContext} from '../../hooks/use-app-model';\n import {useLocale} from '../../hooks/use-locale';\n@@ -88,7 +89,10 @@ function VatNumberEdit({editValue, organisationId}: VatNumberEditProps) {\n   const tooltipHeader = t(`personalDetails.toolTip.vatValidation.header`);\n \n   const checkValidVatNumber = () => {\n-    return validatePersonalVatNumbers(languageTag, vatNumber);\n+    return (\n+      (isSME && validatePersonalVatNumbers(languageTag, vatNumber)) ||\n+      (!isSME && checkPersonalVAT(languageTag, vatNumber))\n+    );\n   };\n \n   const renderVatInvalidMessage = (): string | undefined => {",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 5751,
+      "full_content_excerpt": "@@ L1-L27 @@\n1|import {useTranslationsContext} from '@smart/react-utils';\n2|import {\n3|  isGlobalFeatureFlagsEnabled,\n4|  validatePersonalVatNumbers,\n5|} from '@smart/utils';\n6|import {Icon, TextInput, Tooltip} from '@smart/web-components';\n7|import React, {useContext, useEffect, useRef, useState} from 'react';\n8|import {PersonalDetailsI18nKeys} from '../../../../generated/i18n/PersonalDetails';\n9|import {checkPersonalVAT} from '../../../utils';\n10|import {UsedFeatureFlags} from '../../constants/common';\n11|import {useAppModelLoggedInContext} from '../../hooks/use-app-model';\n12|import {useLocale} from '../../hooks/use-locale';\n13|import {usePostPersonalDetails} from '../../hooks/use-post-personal-details';\n14|import {useTranslations} from '../../hooks/use-translations';\n15|import {EditStateContext} from '../EditStateContext/EditStateContext';\n16|import {PersonalDetailsContext} from '../MyAccountContextWrapper/MyAccountContextWrapper';\n17|import {PersonalDetailsEditFormButtons} from './PersonalDetailsEditFormButtons';\n18|import styles from './personal-details.module.scss';\n19|\n20|type VatNumberEditProps = {\n21|  editValue: string;\n22|  organisationId?: string;\n23|};\n24|\n25|function VatNumberEdit({editValue, organisationId}: VatNumberEditProps) {\n26|  const translate = useTranslations();\n27|  const {setDisableEdit, setChangedContent, setLastUsedInput} =\n@@ L74-L113 @@\n74|  const isSME = !!personalDetailsState.data?.organisationId;\n75|  const vatTitle = translate(\n76|    PersonalDetailsI18nKeys[\n77|      isSME ? `personalDetails.vat.titleSme` : `personalDetails.vat.title`\n78|    ],\n79|  );\n80|\n81|  const translations = useAppModelLoggedInContext().content.translations;\n82|\n83|  const {t} = useTranslationsContext();\n84|  const validVatFormats: string[] =\n85|    translations?.personalDetails?.toolTip?.vatValidation?.formats?.map(\n86|      (_: string, i: number) =>\n87|        t(`personalDetails.toolTip.vatValidation.formats[${i}]`),\n88|    ) || [];\n89|  const tooltipHeader = t(`personalDetails.toolTip.vatValidation.header`);\n90|\n91|  const checkValidVatNumber = () => {\n92|    return (\n93|      (isSME && validatePersonalVatNumbers(languageTag, vatNumber)) ||\n94|      (!isSME && checkPersonalVAT(languageTag, vatNumber))\n95|    );\n96|  };\n97|\n98|  const renderVatInvalidMessage = (): string | undefined => {\n99|    if (!vatNumber)\n100|      return translate(\n101|        PersonalDetailsI18nKeys[`personalDetails.vat.message`],\n102|        `Please enter your VAT number`,\n103|      );\n104|    if (vatValidationEnabled && !checkValidVatNumber()) {\n105|      return translate(\n106|        PersonalDetailsI18nKeys[`personalDetails.vat.validationMessage`],\n107|        `invalid VAT number format`,\n108|      );\n109|    }\n110|    return undefined;\n111|  };\n112|\n113|  return (",
+      "full_content_truncated": true
+    },
+    {
+      "file": "src/utils/check-personal-vat.ts",
+      "diff": "diff --git a/src/utils/check-personal-vat.ts b/src/utils/check-personal-vat.ts\nnew file mode 100644\nindex 00000000..02ec86d4\n--- /dev/null\n+++ b/src/utils/check-personal-vat.ts\n@@ -0,0 +1,8 @@\n+import type {LanguageTag} from '@smart/types';\n+\n+function checkPersonalVAT(languageTag: LanguageTag, vatNumber = ``) {\n+  if (languageTag === `it-IT`) return /^{\\d}16/.test(vatNumber);\n+  // todo: add other country personal check\n+  return false;\n+}\n+export {checkPersonalVAT};",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false,
+      "full_content_length": 272,
+      "full_content": "import type {LanguageTag} from '@smart/types';\n\nfunction checkPersonalVAT(languageTag: LanguageTag, vatNumber = ``) {\n  if (languageTag === `it-IT`) return /^{\\d}16/.test(vatNumber);\n  // todo: add other country personal check\n  return false;\n}\nexport {checkPersonalVAT};\n"
+    },
+    {
+      "file": "src/utils/index.ts",
+      "diff": "diff --git a/src/utils/index.ts b/src/utils/index.ts\nindex 27d75875..92d271dc 100644\n--- a/src/utils/index.ts\n+++ b/src/utils/index.ts\n@@ -1,3 +1,4 @@\n export * from './get-mock-config-from-local-storage';\n export * from './get-mock-from-local-storage';\n export * from './is-payment-type';\n+export * from './check-personal-vat';\n",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    }
+  ],
+  "excludedFiles": [],
+  "analysis": {
+    "summary": "Found a high-severity bug in the regular expression logic for Italian VAT validation that will block personal profile updates.",
+    "bugs": [
+      {
+        "title": "Malformed Regex for Italian VAT Validation",
+        "filePath": "src/utils/check-personal-vat.ts",
+        "lineHint": "Line 4",
+        "description": "The regular expression `/^{\\d}16/` used for Italian VAT/Tax ID validation is syntactically and logically incorrect. It matches the literal characters '{', a digit, '}', and '16' instead of using a quantifier like `\\d{16}` or `[A-Z0-9]{16}` (the standard for Italian Codice Fiscale).",
+        "risk": "This functional bug will cause the validation to consistently return false for any real input. Consequently, Italian users with personal accounts will be unable to save or update their profile information as the UI and BFF will reject valid tax identifiers.",
+        "codeSnippet": "function checkPersonalVAT(languageTag: LanguageTag, vatNumber = ``) {\n+  if (languageTag === `it-IT`) return /^{\\d}16/.test(vatNumber);\n+  // todo: add other country personal check"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Frontend/BFF Validation Logic Discrepancy",
+        "reason": "The UI applies validation conditionally based on the 'isSME' flag, whereas the BFF applies both validators as an OR condition. While slightly inconsistent, the BFF logic serves as a permissive fallback and does not cause a runtime failure or incorrect blocking of valid data."
+      },
+      {
+        "topic": "Limited Country Support",
+        "reason": "The utility currently only handles 'it-IT'. The presence of a 'todo' comment suggests this is a phased rollout or a market-specific requirement, which is expected behavior for a feature branch."
+      }
+    ]
+  }
+}

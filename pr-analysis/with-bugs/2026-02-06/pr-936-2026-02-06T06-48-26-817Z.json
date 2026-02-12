@@ -1,0 +1,69 @@
+{
+  "prId": 936,
+  "repoFullName": "smart_eco-platform/smart-shared",
+  "prTitle": "Feature/IBR-10137 new vat validate sme",
+  "timestamp": "2026-02-06T06:48:26.817Z",
+  "filterStats": {
+    "total": 2,
+    "included": 2,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "packages/utils/src/validate/vat-field.test.ts",
+      "diff": "diff --git a/packages/utils/src/validate/vat-field.test.ts b/packages/utils/src/validate/vat-field.test.ts\nindex a788e6ab..a09a9723 100644\n--- a/packages/utils/src/validate/vat-field.test.ts\n+++ b/packages/utils/src/validate/vat-field.test.ts\n@@ -79,7 +79,7 @@ describe(`test validateCompnayVATNumber right`, function () {\n \n describe(`test validatePersonalVATNumber right`, function () {\n   it(`personal se-SE number`, function () {\n-    expect(validatePersonalVATNumber(`es-ES`, `1`.repeat(9))).toBe(true);\n+    expect(validatePersonalVATNumber(`es-ES`, `M12345678`)).toBe(true);\n     expect(validatePersonalVATNumber(`es-ES`, `1`.repeat(10))).toBe(false);\n     expect(validatePersonalVATNumber(`es-ES`, `1`.repeat(8))).toBe(false);\n   });",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "packages/utils/src/validate/vat-field.ts",
+      "diff": "diff --git a/packages/utils/src/validate/vat-field.ts b/packages/utils/src/validate/vat-field.ts\nindex 18e8f545..456561f9 100644\n--- a/packages/utils/src/validate/vat-field.ts\n+++ b/packages/utils/src/validate/vat-field.ts\n@@ -97,27 +97,29 @@ export const validateCompnayVATNumber = (\n       return euVatFormats.PT.test(vatNumber) || /^\\d{9}$/.test(vatNumber);\n     case `de-AT`:\n       return (\n-        /^ATU\\d{8}$/.test(vatNumber) ||\n-        /^\\d{2}-\\d{3}\\/\\d{4}$/.test(vatNumber) ||\n+        /^ATU[0-9A-Z]{8}$/.test(vatNumber) ||\n+        /^[0-9A-Z]{2}-[0-9A-Z]{3}\\/[0-9A-Z]{4}$/.test(vatNumber) ||\n         euTaxFormats.DE.test(vatNumber)\n       );\n     case `nl-BE`:\n     case `fr-BE`:\n-      return /^BE\\d{10}$/.test(vatNumber);\n+      return /^BE[0-9A-Z]{10}$/.test(vatNumber);\n     case `de-CH`:\n       // Switzerland DE format need a special check\n-      return /^CHE\\d{9}$/.test(vatNumber) || /^\\d{6}$/.test(vatNumber);\n+      return (\n+        /^CHE[0-9A-Z]{9}$/.test(vatNumber) || /^[0-9A-Z]{6}$/.test(vatNumber)\n+      );\n     case `it-CH`:\n     case `fr-CH`:\n-      return /^CHE\\d{9}$/.test(vatNumber);\n+      return /^CHE[0-9A-Z]{9}$/.test(vatNumber);\n     case `it-IT`:\n-      return /^\\d{11}$/.test(vatNumber);\n+      return /^[0-9A-Z]{11}$/.test(vatNumber);\n     case `fr-FR`:\n-      return /^FR\\d{11}$/.test(vatNumber);\n+      return /^FR[0-9A-Z]{11}$/.test(vatNumber);\n     case `nl-NL`:\n-      return /^NL\\d{12}$/.test(vatNumber);\n+      return /^NL[0-9A-Z]{12}$/.test(vatNumber);\n     case `sv-SE`:\n-      return /^SE\\d{10}01$/.test(vatNumber);\n+      return /^SE[0-9A-Z]{10}01$/.test(vatNumber);\n     case `de-DE`: {\n       return euVatFormats.DE.test(vatNumber) || euTaxFormats.DE.test(vatNumber);\n     }\n@@ -139,9 +141,9 @@ export const validatePersonalVATNumber = (\n   const parsedLanguageTag = languageTagSchema.parse(languageTag);\n   switch (parsedLanguageTag) {\n     case `it-IT`:\n-      return /^\\d{16}$/.test(vatNumber);\n+      return /^[A-Z0-9]{16}$/.test(vatNumber);\n     case `es-ES`:\n-      return /^\\d{9}$/.test(vatNumber);\n+      return /^[A-Z]\\d{7}[A-Z0-9]$/.test(vatNumber);\n     default:\n       return false;\n   }\n",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 5313,
+      "full_content_excerpt": "@@ L82-L151 @@\n82| * @returns validate a company/B2B vat number\n83| */\n84|export const validateCompnayVATNumber = (\n85|  languageTag: LanguageTag,\n86|  vatNumber: string = ``,\n87|) => {\n88|  if (!languageTag || !vatNumber) {\n89|    return false;\n90|  }\n91|  const parsedLanguageTag = languageTagSchema.parse(languageTag);\n92|\n93|  switch (parsedLanguageTag) {\n94|    case `es-ES`:\n95|      return euVatFormats.ES.test(vatNumber) || /^\\d{9}$/.test(vatNumber);\n96|    case `pt-PT`:\n97|      return euVatFormats.PT.test(vatNumber) || /^\\d{9}$/.test(vatNumber);\n98|    case `de-AT`:\n99|      return (\n100|        /^ATU[0-9A-Z]{8}$/.test(vatNumber) ||\n101|        /^[0-9A-Z]{2}-[0-9A-Z]{3}\\/[0-9A-Z]{4}$/.test(vatNumber) ||\n102|        euTaxFormats.DE.test(vatNumber)\n103|      );\n104|    case `nl-BE`:\n105|    case `fr-BE`:\n106|      return /^BE[0-9A-Z]{10}$/.test(vatNumber);\n107|    case `de-CH`:\n108|      // Switzerland DE format need a special check\n109|      return (\n110|        /^CHE[0-9A-Z]{9}$/.test(vatNumber) || /^[0-9A-Z]{6}$/.test(vatNumber)\n111|      );\n112|    case `it-CH`:\n113|    case `fr-CH`:\n114|      return /^CHE[0-9A-Z]{9}$/.test(vatNumber);\n115|    case `it-IT`:\n116|      return /^[0-9A-Z]{11}$/.test(vatNumber);\n117|    case `fr-FR`:\n118|      return /^FR[0-9A-Z]{11}$/.test(vatNumber);\n119|    case `nl-NL`:\n120|      return /^NL[0-9A-Z]{12}$/.test(vatNumber);\n121|    case `sv-SE`:\n122|      return /^SE[0-9A-Z]{10}01$/.test(vatNumber);\n123|    case `de-DE`: {\n124|      return euVatFormats.DE.test(vatNumber) || euTaxFormats.DE.test(vatNumber);\n125|    }\n126|    case `en-GB`:\n127|      return (\n128|        nonEuVatFormats.GB.test(vatNumber) || nonEuTaxFormats.GB.test(vatNumber)\n129|      );\n130|    default:\n131|      return /^[A-Z0-9]{9}$/.test(vatNumber);\n132|  }\n133|};\n134|export const validatePersonalVATNumber = (\n135|  languageTag: LanguageTag,\n136|  vatNumber: string = ``,\n137|) => {\n138|  if (!languageTag || !vatNumber) {\n139|    return false;\n140|  }\n141|  const parsedLanguageTag = languageTagSchema.parse(languageTag);\n142|  switch (parsedLanguageTag) {\n143|    case `it-IT`:\n144|      return /^[A-Z0-9]{16}$/.test(vatNumber);\n145|    case `es-ES`:\n146|      return /^[A-Z]\\d{7}[A-Z0-9]$/.test(vatNumber);\n147|    default:\n148|      return false;\n149|  }\n150|};\n151|",
+      "full_content_truncated": true
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "gemini-3-flash-preview",
+      "elapsedMs": 83347,
+      "promptTokens": 3779,
+      "responseTokens": null,
+      "totalTokens": 15904,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": 11536,
+      "source": "usageMetadata"
+    }
+  ],
+  "analysis": {
+    "summary": "The PR updates VAT validation logic for multiple regions to support alphanumeric characters, but introduces a critical logic regression in Spanish personal VAT validation that will block valid citizen IDs.",
+    "bugs": [
+      {
+        "title": "Spanish personal VAT validation regex rejects standard citizen IDs (NIF)",
+        "filePath": "packages/utils/src/validate/vat-field.ts",
+        "lineHint": "Line 146",
+        "description": "The updated regex for Spanish personal VAT (/^[A-Z]\\d{7}[A-Z0-9]$/) now strictly requires the identification number to start with a letter. While this correctly matches NIE (Foreigner Identity Number) and some specific NIF types (K, L, M), it will fail for all standard Spanish NIFs used by native citizens, which start with 8 digits followed by a checksum letter (e.g., 12345678A).",
+        "risk": "This is a high-severity functional bug that will prevent all native Spanish users from validating their tax IDs. Since this validation is likely required for account registration, SME verification, or invoicing for services like EXTENDED_CONNECTED_SERVICE, it will block native Spanish citizens from using the platform.",
+        "codeSnippet": "    case `es-ES`:\n-      return /^\\d{9}$/.test(vatNumber);\n+      return /^[A-Z]\\d{7}[A-Z0-9]$/.test(vatNumber);\n    default:"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Alphanumeric broadening for other locales",
+        "reason": "The change from digit-only (\\d) to alphanumeric ([0-9A-Z]) patterns for locales like Italy, Austria, and Sweden is a broadening of validation rules. While this creates a 'false positive' risk (allowing invalid characters), it does not cause runtime errors and avoids blocking valid users, which is the primary goal of this SME-focused update."
+      },
+      {
+        "topic": "Italian personal VAT update",
+        "reason": "The change for it-IT personal validation to /^[A-Z0-9]{16}$/ is actually a fix. The previous digit-only check was incorrect for the Italian 'Codice Fiscale', which is a 16-character alphanumeric string."
+      },
+      {
+        "topic": "Typo in function name",
+        "reason": "The typo 'validateCompnayVATNumber' (instead of 'Company') is pre-existing code and does not affect the functional logic or cause runtime failures."
+      }
+    ]
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "prId": 370,
+  "repoFullName": "smart_eco-platform/product-catalogue-feature-app",
+  "prTitle": "feat: IBR-14721-tag support tag with md",
+  "timestamp": "2026-02-10T06:20:29.162Z",
+  "filterStats": {
+    "total": 2,
+    "included": 2,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "src/bff/types/index.ts",
+      "diff": "diff --git a/src/bff/types/index.ts b/src/bff/types/index.ts\nindex f1170bc..184fae4 100644\n--- a/src/bff/types/index.ts\n+++ b/src/bff/types/index.ts\n@@ -204,6 +204,7 @@ export type Badge = {\n   name: string;\n   priority: number;\n   type: BadgeTypes;\n+  description?: string;\n };\n \n export type BadgeTypes = 'PRIMARY' | 'GHOST' | 'GRAY' | 'LIME';",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/feature-app/components/promo-badge/index.tsx",
+      "diff": "diff --git a/src/feature-app/components/promo-badge/index.tsx b/src/feature-app/components/promo-badge/index.tsx\nindex db41cda..ea044b0 100644\n--- a/src/feature-app/components/promo-badge/index.tsx\n+++ b/src/feature-app/components/promo-badge/index.tsx\n@@ -1,8 +1,8 @@\n import type {TagProps} from '@smart/react-components';\n-import {Flex, Tag} from '@smart/react-components';\n+import {Flex, Markdown, Tag} from '@smart/react-components';\n import React from 'react';\n+import type {BadgeFootnotes} from '../../../bff/app-model/create-app-model';\n import type {Badge, BadgeTypes} from '../../../bff/types';\n-import type {BadgeFootnotes} from './../../../bff/app-model/create-app-model';\n import styles from './index.module.scss';\n \n export type PromoBadgeProps = {\n@@ -29,7 +29,7 @@ export const PromoBadge = ({badges, footnotes}: PromoBadgeProps) => {\n         >\n           {badges.map((badge) => (\n             <Tag key={badge.code} variant={variants[badge.type]}>\n-              {badge.name}\n+              <Markdown>{badge.description ?? (badge.name as string)}</Markdown>\n               {footnotes?.[`badge/${badge.code}`] && (\n                 <sup className={styles[`footnotes`]}>\n                   {footnotes?.[`badge/${badge.code}`]}\n",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": true,
+      "full_content_length": 1285,
+      "full_content": "import type {TagProps} from '@smart/react-components';\nimport {Flex, Markdown, Tag} from '@smart/react-components';\nimport React from 'react';\nimport type {BadgeFootnotes} from '../../../bff/app-model/create-app-model';\nimport type {Badge, BadgeTypes} from '../../../bff/types';\nimport styles from './index.module.scss';\n\nexport type PromoBadgeProps = {\n  badges?: Badge[];\n  footnotes?: BadgeFootnotes;\n};\n\nexport const PromoBadge = ({badges, footnotes}: PromoBadgeProps) => {\n  const variants: Record<BadgeTypes, TagProps['variant']> = {\n    PRIMARY: `primary`,\n    GHOST: `inverted`,\n    GRAY: `grey`,\n    LIME: `lime`,\n  };\n\n  return (\n    <>\n      {badges && badges.length > 0 && (\n        <Flex\n          direction=\"row\"\n          gap={100}\n          wrap=\"wrap\"\n          className={styles[`tag-container`]}\n        >\n          {badges.map((badge) => (\n            <Tag key={badge.code} variant={variants[badge.type]}>\n              <Markdown>{badge.description ?? (badge.name as string)}</Markdown>\n              {footnotes?.[`badge/${badge.code}`] && (\n                <sup className={styles[`footnotes`]}>\n                  {footnotes?.[`badge/${badge.code}`]}\n                </sup>\n              )}\n            </Tag>\n          ))}\n        </Flex>\n      )}\n    </>\n  );\n};\n"
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "gemini-3-flash-preview",
+      "elapsedMs": 92429,
+      "promptTokens": 2327,
+      "responseTokens": null,
+      "totalTokens": 17337,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": 14585,
+      "source": "usageMetadata"
+    }
+  ],
+  "analysis": {
+    "summary": "The PR introduces Markdown support for badges but leaves the `Badge` type definition inconsistent with its usage in the component, which will break React rendering and footnote display logic.",
+    "bugs": [
+      {
+        "title": "Missing `code` property in `Badge` type causes broken React keys and footnotes",
+        "filePath": "src/bff/types/index.ts",
+        "lineHint": "Line 204",
+        "description": "The `Badge` type definition updated in this PR (lines 204-210) does not include a `code` property. However, the `PromoBadge` component relies on `badge.code` for its React list keys and for looking up footnote translations.",
+        "risk": "At runtime, `badge.code` will be `undefined`. This causes all badges to share the same React key (`undefined`), leading to incorrect UI reconciliation and state bugs. Additionally, footnote lookups will resolve to `badge/undefined`, causing all badge footnotes to fail to render.",
+        "codeSnippet": "-              {badge.name}\n+              <Markdown>{badge.description ?? (badge.name as string)}</Markdown>\n               {footnotes?.[`badge/${badge.code}`] && ("
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Markdown component nesting",
+        "reason": "While placing Markdown (which may render block elements) inside a Tag component could potentially lead to invalid HTML nesting (e.g., div inside span), this is a styling/linting concern rather than a high-severity functional runtime error."
+      },
+      {
+        "topic": "Redundant type assertion",
+        "reason": "The use of `as string` on `badge.name` is redundant because the type definition already declares it as a string, but this has no impact on runtime behavior or correctness."
+      }
+    ]
+  }
+}

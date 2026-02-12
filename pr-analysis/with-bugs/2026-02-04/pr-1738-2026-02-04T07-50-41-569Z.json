@@ -1,0 +1,41 @@
+{
+  "prId": 1738,
+  "repoFullName": "smart_eco-platform/shopping-cart-feature-app",
+  "prTitle": "fix: add the comfirmation tracking of pcp",
+  "timestamp": "2026-02-04T07:50:41.569Z",
+  "filterStats": {
+    "total": 1,
+    "included": 1,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "src/feature-app-legacy/view/order-success/order-success.tsx",
+      "diff": "diff --git a/src/feature-app-legacy/view/order-success/order-success.tsx b/src/feature-app-legacy/view/order-success/order-success.tsx\nindex 91f8226e..943e5151 100644\n--- a/src/feature-app-legacy/view/order-success/order-success.tsx\n+++ b/src/feature-app-legacy/view/order-success/order-success.tsx\n@@ -12,6 +12,11 @@ import {\n import React from 'react';\n import {useSearchParams} from 'react-router-dom';\n import type {AppModel} from '../../../bff/app-model/create-content-model';\n+import type {\n+  ICartOverview,\n+  IErrorPage,\n+  IEventData,\n+} from '../../../feature-app-legacy/hooks';\n import {Indicator} from '../../components/indicator/indicator';\n import {LoadingPage} from '../../components/loader';\n import {createGenericImageUrl} from '../../constants/dam-files-path';\n@@ -20,6 +25,7 @@ import {\n   useAppModelContext,\n   useCheckoutContext,\n   useFeatureAppEnv,\n+  useTracking,\n } from '../../hooks';\n import {useOrderSuccess} from './hooks/use-order-success';\n import {NextSteps} from './next-steps';\n@@ -61,6 +67,7 @@ export const OrderSuccess = (): JSX.Element => {\n       cartTypeMap,\n       cartStatus: {isOrderingOnHold},\n       analyticsData,\n+      products,\n     },\n   } = appContextData as AppModel;\n   const [searchParams] = useSearchParams();\n@@ -91,9 +98,20 @@ export const OrderSuccess = (): JSX.Element => {\n     hasExtendedWarranty,\n   } = useOrderSuccess();\n \n+  const [extendDataLayer] = useTracking<\n+    ICartOverview | IEventData | IErrorPage\n+  >();\n+\n   React.useEffect(() => {\n     setShowStepper(false);\n     publish(`cart-update`);\n+    const webTrackObj: IEventData = {\n+      name: `comfirmation`,\n+      type: `checkout`,\n+      region: `successOrder`,\n+      product: [products.extendedConnectedService!],\n+    };\n+    extendDataLayer(webTrackObj);\n   }, []);\n \n   // NOTE: show loading screen when orders are not fetched yet\n",
+      "hasFunctionalChange": false
+    }
+  ],
+  "excludedFiles": [],
+  "analysis": {
+    "summary": "Potential runtime error due to accessing properties on an undefined object in tracking logic.",
+    "bugs": [
+      {
+        "title": "Runtime crash due to missing 'products' data",
+        "filePath": "src/feature-app-legacy/view/order-success/order-success.tsx",
+        "lineHint": "Line 98, 103",
+        "description": "The `products` object is destructured from `appContextData.data.analyticsData`. If `appContextData.data.analyticsData` does not contain a `products` property, `products` will be `undefined`. Subsequently, `products.extendedConnectedService!` will attempt to access a property on `undefined`, leading to a runtime TypeError.",
+        "risk": "This is a HIGH severity bug because it will cause the 'Order Success' page to crash for users if the `products` data is missing in the `appContextData`. This prevents the user from seeing their order confirmation and will also cause the critical 'comfirmation' tracking event to fail, impacting analytics and user experience."
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "New imports and hook usage",
+        "reason": "Adding new type imports and the `useTracking` hook are standard practices for extending functionality and do not introduce bugs themselves."
+      },
+      {
+        "topic": "Non-null assertion operator",
+        "reason": "While `!` can mask potential `null`/`undefined` issues, the primary confirmed bug is the access on a potentially `undefined` `products` object itself, not specifically the `extendedConnectedService` being null (which would become `[null]` in the array). The `!` is a symptom, the lack of defensive coding for `products` is the root cause of the confirmed runtime error."
+      }
+    ]
+  }
+}

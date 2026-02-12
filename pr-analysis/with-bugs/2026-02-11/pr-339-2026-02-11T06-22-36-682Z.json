@@ -1,0 +1,115 @@
+{
+  "prId": 339,
+  "repoFullName": "smart_eco-platform/product-summary-feature-app",
+  "prTitle": "Release/IBR-2805 discount",
+  "timestamp": "2026-02-11T06:22:36.682Z",
+  "filterStats": {
+    "total": 9,
+    "included": 9,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "src/bff/product-model/types/types.ts",
+      "diff": "diff --git a/src/bff/product-model/types/types.ts b/src/bff/product-model/types/types.ts\nindex 9da2ec9..bfe5135 100644\n--- a/src/bff/product-model/types/types.ts\n+++ b/src/bff/product-model/types/types.ts\n@@ -2165,7 +2165,7 @@ export interface Product {\n   /** Price of the product with promotional badge */\n   promoBadgePrice?: {\n     discount?: DiscountPrice;\n-    notDiscount?: DiscountPrice;\n+    netDiscount?: DiscountPrice;\n   };\n   /** Price range assigned to the product */\n   priceRange?: PriceRange;",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/feature-app/components/app.module.scss",
+      "diff": "diff --git a/src/feature-app/components/app.module.scss b/src/feature-app/components/app.module.scss\nindex c859785..b842c29 100644\n--- a/src/feature-app/components/app.module.scss\n+++ b/src/feature-app/components/app.module.scss\n@@ -9,3 +9,7 @@\n   justify-content: center;\n   flex-wrap: wrap;\n }\n+.loader {\n+  height: 80vh;\n+  margin-top: var(--spacing-900);\n+}",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/feature-app/components/app.tsx",
+      "diff": "diff --git a/src/feature-app/components/app.tsx b/src/feature-app/components/app.tsx\nindex 6ac3ce2..16d8cab 100644\n--- a/src/feature-app/components/app.tsx\n+++ b/src/feature-app/components/app.tsx\n@@ -30,7 +30,7 @@ export function App({done}: AppProps) {\n   if (!appModel) {\n     return (\n       <div className={styles[baseClass]}>\n-        <Loader size=\"medium\" messageId=\"\" />\n+        <Loader size=\"medium\" messageId=\"\" className={styles.loader} />\n       </div>\n     );\n   }",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/feature-app/components/lead-time/lead-time.tsx",
+      "diff": "diff --git a/src/feature-app/components/lead-time/lead-time.tsx b/src/feature-app/components/lead-time/lead-time.tsx\nindex ac021e8..2dff875 100644\n--- a/src/feature-app/components/lead-time/lead-time.tsx\n+++ b/src/feature-app/components/lead-time/lead-time.tsx\n@@ -13,10 +13,8 @@ export const LeadTime = ({product, enablePcP}: LeadTimeProps) => {\n   const {appModel} = useAppModelContext();\n   const {outOfStockLabel, disclaimerReferences, estimatedDeliveryText} =\n     appModel;\n-\n   const {t} = useTranslations(appModel.translations);\n   const {stock, isProductInStock} = product;\n-\n   const earliestBeautifiedLeadTime = stock?.earliestBeautifiedLeadTime;\n   const estimatedDelivery =\n     earliestBeautifiedLeadTime &&",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/feature-app/components/price/price.module.scss",
+      "diff": "diff --git a/src/feature-app/components/price/price.module.scss b/src/feature-app/components/price/price.module.scss\nindex 9ed31e0..2e88bea 100644\n--- a/src/feature-app/components/price/price.module.scss\n+++ b/src/feature-app/components/price/price.module.scss\n@@ -46,4 +46,5 @@\n }\n .tag {\n   display: inline-block;\n+  background-color: var(--sig-error);\n }",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/feature-app/components/price/price.tsx",
+      "diff": "diff --git a/src/feature-app/components/price/price.tsx b/src/feature-app/components/price/price.tsx\nindex 97a3dcd..71edfb5 100644\n--- a/src/feature-app/components/price/price.tsx\n+++ b/src/feature-app/components/price/price.tsx\n@@ -1,6 +1,7 @@\n-import {useFeatureFlags} from '@smart/feature-app';\n+import {useFeatureFlags, useSalesChannel} from '@smart/feature-app';\n import {Tag} from '@smart/react-components';\n import {useTranslations} from '@smart/react-utils';\n+import {SalesChannel} from '@smart/types';\n import {Heading, Text} from '@smart/web-components';\n import classNames from 'classnames';\n import React from 'react';\n@@ -18,7 +19,7 @@ type PriceProps = {\n   enablePcP?: boolean;\n   discountPrice?: string;\n   discountPercentage?: number;\n-  discountAmount?: number;\n+  discountAmount?: string;\n };\n \n export const Price = ({\n@@ -37,14 +38,33 @@ export const Price = ({\n     usedFeatureFlags.ENABLE_DISCOUNT_IN_SALES_TOOL,\n   );\n   const {appModel} = useAppModelContext();\n-\n+  const salesChannel = useSalesChannel();\n   const {t} = useTranslations(appModel.translations);\n-  const isDiscountApplicable = hasDiscountFlags && hasDiscount && discountPrice;\n+  const isDiscountApplicable =\n+    hasDiscountFlags &&\n+    hasDiscount &&\n+    discountPrice &&\n+    salesChannel !== SalesChannel.DEMO;\n   const replacePricePlaceholder = (\n     text: string,\n     originalPrice?: string,\n   ): React.ReactNode => {\n     const parts = text.split(`{{price}}`);\n+    const template = t(`discount.tag`);\n+    const placeholder = `{{discountTagPrice}}`;\n+\n+    const dynamicValue =\n+      t(`discount.usePercentageDiscount`) === `true`\n+        ? `-${discountPercentage ?? ``}%`\n+        : `${discountAmount ?? ``}`;\n+    const staticText = template.replace(placeholder, ``);\n+    const trimmedStaticText =\n+      staticText.length > 25\n+        ? staticText.slice(0, 25 - dynamicValue.length)\n+        : staticText;\n+    const displayTagText = template\n+      .replace(placeholder, dynamicValue)\n+      .replace(staticText, trimmedStaticText);\n     return (\n       <div className={styles.originalPriceContent}>\n         <span>{parts[0]}</span>\n@@ -53,12 +73,7 @@ export const Price = ({\n         </Text>\n         <span className={styles.priceSuffix}>{parts[1]}</span>\n         <Tag variant=\"brabus\" className={styles.tag}>\n-          {t(`discount.tag`).replace(\n-            `{{discountTagPrice}}`,\n-            t(`discount.usePercentageDiscount`) === `true`\n-              ? `-${discountPercentage}%`\n-              : `${discountAmount}`,\n-          )}\n+          {displayTagText}\n           <sup>{t(`discount.tagSuperscript`)}</sup>\n         </Tag>\n       </div>",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 3778,
+      "full_content": "import {useFeatureFlags, useSalesChannel} from '@smart/feature-app';\nimport {Tag} from '@smart/react-components';\nimport {useTranslations} from '@smart/react-utils';\nimport {SalesChannel} from '@smart/types';\nimport {Heading, Text} from '@smart/web-components';\nimport classNames from 'classnames';\nimport React from 'react';\nimport {usedFeatureFlags} from '../../constants/common';\nimport {useAppModelContext} from '../../hooks/use-app-model';\nimport styles from './price.module.scss';\n\ntype PriceProps = {\n  label: string;\n  labelSup?: string;\n  price: string;\n  priceSuffix?: React.ReactNode;\n  vatLabel?: string;\n  hasDiscount?: boolean;\n  enablePcP?: boolean;\n  discountPrice?: string;\n  discountPercentage?: number;\n  discountAmount?: string;\n};\n\nexport const Price = ({\n  label,\n  labelSup,\n  price,\n  vatLabel,\n  priceSuffix,\n  hasDiscount,\n  enablePcP,\n  discountPrice,\n  discountPercentage,\n  discountAmount,\n}: PriceProps) => {\n  const {enabled: hasDiscountFlags} = useFeatureFlags(\n    usedFeatureFlags.ENABLE_DISCOUNT_IN_SALES_TOOL,\n  );\n  const {appModel} = useAppModelContext();\n  const salesChannel = useSalesChannel();\n  const {t} = useTranslations(appModel.translations);\n  const isDiscountApplicable =\n    hasDiscountFlags &&\n    hasDiscount &&\n    discountPrice &&\n    salesChannel !== SalesChannel.DEMO;\n  const replacePricePlaceholder = (\n    text: string,\n    originalPrice?: string,\n  ): React.ReactNode => {\n    const parts = text.split(`{{price}}`);\n    const template = t(`discount.tag`);\n    const placeholder = `{{discountTagPrice}}`;\n\n    const dynamicValue =\n      t(`discount.usePercentageDiscount`) === `true`\n        ? `-${discountPercentage ?? ``}%`\n        : `${discountAmount ?? ``}`;\n    const staticText = template.replace(placeholder, ``);\n    const trimmedStaticText =\n      staticText.length > 25\n        ? staticText.slice(0, 25 - dynamicValue.length)\n        : staticText;\n    const displayTagText = template\n      .replace(placeholder, dynamicValue)\n      .replace(staticText, trimmedStaticText);\n    return (\n      <div className={styles.originalPriceContent}>\n        <span>{parts[0]}</span>\n        <Text tag=\"span\" className={styles.originalPrice}>\n          {originalPrice}\n        </Text>\n        <span className={styles.priceSuffix}>{parts[1]}</span>\n        <Tag variant=\"brabus\" className={styles.tag}>\n          {displayTagText}\n          <sup>{t(`discount.tagSuperscript`)}</sup>\n        </Tag>\n      </div>\n    );\n  };\n  return (\n    <div className={styles[`price`]}>\n      <Text variant=\"paragraph-200\">\n        {isDiscountApplicable ? t(`discount.priceLabel`) : label}\n        {labelSup && (\n          <sup>\n            {isDiscountApplicable\n              ? t(`discount.priceLabelSuperscript`)\n              : labelSup}\n          </sup>\n        )}\n      </Text>\n      <div\n        className={classNames({\n          [styles.discountContainer!]: isDiscountApplicable,\n          [styles.pcpContent!]: enablePcP,\n        })}\n      >\n        <div className={styles.row}>\n          <Heading\n            tag=\"span\"\n            variant=\"headline-functional-50\"\n            className={classNames(styles[`price-value`], {\n              [styles.discount!]: isDiscountApplicable,\n            })}\n          >\n            {price}\n          </Heading>\n          {priceSuffix && priceSuffix}\n        </div>\n\n        {vatLabel && (\n          <Text\n            tag=\"span\"\n            className={styles[`vat-label`]}\n            variant=\"paragraph-100\"\n          >\n            {vatLabel}\n          </Text>\n        )}\n      </div>\n      {isDiscountApplicable && (\n        <>\n          {replacePricePlaceholder(\n            t(`discount.listPriceDiscription`),\n            discountPrice,\n          )}\n        </>\n      )}\n    </div>\n  );\n};\n"
+    },
+    {
+      "file": "src/feature-app/components/product-summary.tsx",
+      "diff": "diff --git a/src/feature-app/components/product-summary.tsx b/src/feature-app/components/product-summary.tsx\nindex 77338ac..a3a21c1 100644\n--- a/src/feature-app/components/product-summary.tsx\n+++ b/src/feature-app/components/product-summary.tsx\n@@ -4,13 +4,13 @@ import React from 'react';\n import {ProductType, usedFeatureFlags} from '../constants/common';\n import {useProductModel} from '../hooks/use-product-model';\n import {AccessorySummary} from './accessory-summary';\n+import styles from './app.module.scss';\n import {ExtendedConnectedServiceSummary} from './extended-connected-service-summary';\n import {ExtendedWarrantySummary} from './extended-warranty-summary';\n import {NotFound} from './not-found';\n import {ProductHeader} from './product-header';\n import {VehicleSummary} from './vehicle-summary';\n import {WallboxSummary} from './wallbox-summary';\n-\n export const ProductSummary = () => {\n   const {product, loading} = useProductModel();\n   const {enabled: isExtendedWarrantyEnabled} = useFeatureFlags(\n@@ -18,7 +18,7 @@ export const ProductSummary = () => {\n   );\n \n   if (loading) {\n-    return <Loader size=\"medium\" messageId=\"\" />;\n+    return <Loader size=\"medium\" messageId=\"\" className={styles.loader} />;\n   }\n \n   if (!product) {",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 1806,
+      "full_content": "import {useFeatureFlags} from '@smart/feature-app';\nimport {Loader} from '@smart/web-components';\nimport React from 'react';\nimport {ProductType, usedFeatureFlags} from '../constants/common';\nimport {useProductModel} from '../hooks/use-product-model';\nimport {AccessorySummary} from './accessory-summary';\nimport styles from './app.module.scss';\nimport {ExtendedConnectedServiceSummary} from './extended-connected-service-summary';\nimport {ExtendedWarrantySummary} from './extended-warranty-summary';\nimport {NotFound} from './not-found';\nimport {ProductHeader} from './product-header';\nimport {VehicleSummary} from './vehicle-summary';\nimport {WallboxSummary} from './wallbox-summary';\nexport const ProductSummary = () => {\n  const {product, loading} = useProductModel();\n  const {enabled: isExtendedWarrantyEnabled} = useFeatureFlags(\n    usedFeatureFlags.ENABLE_EXTENDED_WARRANTY,\n  );\n\n  if (loading) {\n    return <Loader size=\"medium\" messageId=\"\" className={styles.loader} />;\n  }\n\n  if (!product) {\n    return (\n      <>\n        <ProductHeader />\n        <NotFound />\n      </>\n    );\n  }\n\n  return (\n    <>\n      {isExtendedWarrantyEnabled &&\n        product.productType === ProductType.EXTENDED_WARRANTY && (\n          <ExtendedWarrantySummary productModel={product} />\n        )}\n      {product.productType === ProductType.ACCESSORY && (\n        <AccessorySummary productModel={product} />\n      )}\n      {product.productType === ProductType.WALLBOX && (\n        <WallboxSummary productModel={product} />\n      )}\n      {product.productType === ProductType.VEHICLE && (\n        <VehicleSummary productModel={product} />\n      )}\n      {product.productType === ProductType.EXTENDED_CONNECTED_SERVICE && (\n        <ExtendedConnectedServiceSummary productModel={product} />\n      )}\n    </>\n  );\n};\n"
+    },
+    {
+      "file": "src/feature-app/components/vehicle-summary/headline/pricing-info/cashbuy-price.tsx",
+      "diff": "diff --git a/src/feature-app/components/vehicle-summary/headline/pricing-info/cashbuy-price.tsx b/src/feature-app/components/vehicle-summary/headline/pricing-info/cashbuy-price.tsx\nindex 6aa15e0..2b0a71b 100644\n--- a/src/feature-app/components/vehicle-summary/headline/pricing-info/cashbuy-price.tsx\n+++ b/src/feature-app/components/vehicle-summary/headline/pricing-info/cashbuy-price.tsx\n@@ -8,7 +8,7 @@ type CashBuyPriceProps = {\n   cashPrice: string;\n   discountPrice?: string;\n   discountPercentage?: number;\n-  discountAmount?: number;\n+  discountAmount?: string;\n };\n \n export const CashBuyPrice = ({",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/feature-app/components/vehicle-summary/headline/pricing-info/index.tsx",
+      "diff": "diff --git a/src/feature-app/components/vehicle-summary/headline/pricing-info/index.tsx b/src/feature-app/components/vehicle-summary/headline/pricing-info/index.tsx\nindex a207a87..8b2e1d5 100644\n--- a/src/feature-app/components/vehicle-summary/headline/pricing-info/index.tsx\n+++ b/src/feature-app/components/vehicle-summary/headline/pricing-info/index.tsx\n@@ -189,7 +189,7 @@ export function PricingInfo({\n                       ? showVat\n                         ? (product?.promoBadgePrice?.discount\n                             ?.discountedFormattedValue ?? `-`)\n-                        : (product?.promoBadgePrice?.notDiscount\n+                        : (product?.promoBadgePrice?.netDiscount\n                             ?.discountedFormattedValue ?? `-`)\n                       : cashPrice\n                   }\n@@ -200,13 +200,16 @@ export function PricingInfo({\n                     showVat\n                       ? product?.promoBadgePrice?.discount\n                           ?.totalDiscountPercentage\n-                      : product?.promoBadgePrice?.notDiscount\n+                      : product?.promoBadgePrice?.netDiscount\n+                          ?.totalDiscountPercentage ||\n+                        product?.promoBadgePrice?.discount\n                           ?.totalDiscountPercentage\n                   }\n                   discountAmount={\n                     showVat\n-                      ? product?.promoBadgePrice?.discount?.totalDiscount\n-                      : product?.promoBadgePrice?.notDiscount?.totalDiscount\n+                      ? product?.promoBadgePrice?.discount?.formattedValue\n+                      : product?.promoBadgePrice?.netDiscount?.formattedValue ||\n+                        product?.promoBadgePrice?.discount?.formattedValue\n                   }\n                 />\n               )}\n",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 8067,
+      "full_content_excerpt": "@@ L174-L230 @@\n174|                  leasingPrice={leasingPrice || `-`}\n175|                  openCalculator={openCalculator}\n176|                  paymentConfig={paymentConfig}\n177|                />\n178|              )}\n179|              {cashPrice && (\n180|                <CashBuyPrice\n181|                  priceLabel={priceLabel}\n182|                  priceLabelSuperscript={\n183|                    disclaimerReferences.prices.price\n184|                      ? disclaimerReferences.prices.price\n185|                      : undefined\n186|                  }\n187|                  cashPrice={\n188|                    product?.promoBadgePrice\n189|                      ? showVat\n190|                        ? (product?.promoBadgePrice?.discount\n191|                            ?.discountedFormattedValue ?? `-`)\n192|                        : (product?.promoBadgePrice?.netDiscount\n193|                            ?.discountedFormattedValue ?? `-`)\n194|                      : cashPrice\n195|                  }\n196|                  discountPrice={\n197|                    product?.promoBadgePrice ? cashPrice : undefined\n198|                  }\n199|                  discountPercentage={\n200|                    showVat\n201|                      ? product?.promoBadgePrice?.discount\n202|                          ?.totalDiscountPercentage\n203|                      : product?.promoBadgePrice?.netDiscount\n204|                          ?.totalDiscountPercentage ||\n205|                        product?.promoBadgePrice?.discount\n206|                          ?.totalDiscountPercentage\n207|                  }\n208|                  discountAmount={\n209|                    showVat\n210|                      ? product?.promoBadgePrice?.discount?.formattedValue\n211|                      : product?.promoBadgePrice?.netDiscount?.formattedValue ||\n212|                        product?.promoBadgePrice?.discount?.formattedValue\n213|                  }\n214|                />\n215|              )}\n216|            </div>\n217|            {isProductPurchasable && !hidePaymentCalculator && <SetVariant />}\n218|          </>\n219|        )}\n220|      </div>\n221|\n222|      {shouldLoadLeasingInformationFeatureApp &&\n223|        leasingInformationDialogRef && (\n224|          <FeatureAppLoader\n225|            key={`${leasingInformationFeatureAppConfig.id}-${pn18}`}\n226|            featureAppId={`${leasingInformationFeatureAppConfig.id}-${leasingInformationFeatureAppConfig.versionHash}-${pn18}`}\n227|            featureAppName={leasingInformationFeatureAppConfig.featureAppName}\n228|            baseUrl={leasingInformationFeatureAppConfig.baseUrl}\n229|            src={leasingInformationFeatureAppConfig.src}\n230|            config={{pn18, ref: leasingInformationDialogRef}}",
+      "full_content_truncated": true
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "gemini-3-flash-preview",
+      "elapsedMs": 93809,
+      "promptTokens": 6883,
+      "responseTokens": null,
+      "totalTokens": 22476,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": 15071,
+      "source": "usageMetadata"
+    }
+  ],
+  "analysis": {
+    "summary": "The PR renames price fields and updates discount display logic, but introduces inconsistent fallback behavior and a logic error using falsy checks for numeric percentage values.",
+    "bugs": [
+      {
+        "title": "Inconsistent fallback and incorrect falsy check in pricing logic",
+        "filePath": "src/feature-app/components/vehicle-summary/headline/pricing-info/index.tsx",
+        "lineHint": "Line 200",
+        "description": "The logic for discountPercentage and discountAmount introduces a fallback to Gross values (discount) when Net values (netDiscount) are missing. This is inconsistent with the cashPrice calculation (lines 192-194), which correctly displays a placeholder (-) if Net data is missing. Furthermore, using '||' for totalDiscountPercentage causes a valid 0% net discount to be incorrectly overridden by a Gross discount value.",
+        "risk": "This causes a mismatched UI where the main price value is missing/placeholder while a discount badge (from gross data) is still displayed. It also leads to mathematically incorrect pricing displays when net and gross discounts differ or when one is zero.",
+        "codeSnippet": "                  discountPercentage={\n                    showVat\n                      ? product?.promoBadgePrice?.discount\n                          ?.totalDiscountPercentage\n-                      : product?.promoBadgePrice?.notDiscount\n-                          ?.totalDiscountPercentage\n+                      : product?.promoBadgePrice?.netDiscount\n+                          ?.totalDiscountPercentage ||\n+                        product?.promoBadgePrice?.discount\n+                          ?.totalDiscountPercentage\n                   }"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "SalesChannel.DEMO check",
+        "reason": "Excluding discounts in the DEMO sales channel is a deliberate business logic change for this feature."
+      },
+      {
+        "topic": "Tag truncation logic",
+        "reason": "While the string replacement logic in price.tsx for truncated labels is brittle (may fail if placeholders are middle-aligned), it does not cause runtime crashes or affect core functional behavior."
+      },
+      {
+        "topic": "Type rename of notDiscount to netDiscount",
+        "reason": "The rename is consistent across the BFF types and the updated consumer in the pricing-info component."
+      }
+    ]
+  }
+}

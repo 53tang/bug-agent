@@ -1,0 +1,83 @@
+{
+  "prId": 243,
+  "repoFullName": "smart_eco-platform/api-integration-aws",
+  "prTitle": "Feature/salesforce fix 0202",
+  "timestamp": "2026-02-03T08:59:09.379Z",
+  "filterStats": {
+    "total": 8,
+    "included": 5,
+    "excluded": 3
+  },
+  "changeList": [
+    {
+      "file": "packages/core/src/services/ecom/order/index.ts",
+      "diff": "diff --git a/packages/core/src/services/ecom/order/index.ts b/packages/core/src/services/ecom/order/index.ts\nindex eadc828..5601688 100644\n--- a/packages/core/src/services/ecom/order/index.ts\n+++ b/packages/core/src/services/ecom/order/index.ts\n@@ -140,7 +140,7 @@ export const getOrderPreferences = async (\n \n export const cancelOrder = async (\n   data: CancelOrderBodyType,\n-  headers: EcomAuthenticatedHeaders,\n+  headers: Partial<EcomAuthenticatedHeaders>,\n ) => {\n   const client = await createClient(undefined, headers);\n ",
+      "hasFunctionalChange": false
+    },
+    {
+      "file": "packages/functions/src/ecom/cancel-order/index.ts",
+      "diff": "diff --git a/packages/functions/src/ecom/cancel-order/index.ts b/packages/functions/src/ecom/cancel-order/index.ts\nindex a44074c..4230fe4 100644\n--- a/packages/functions/src/ecom/cancel-order/index.ts\n+++ b/packages/functions/src/ecom/cancel-order/index.ts\n@@ -4,14 +4,23 @@ import {ApiHandler} from 'sst/node/api';\n import {middyfy} from '../../middleware/middy';\n import {parseEvent} from '../../utils/parse-event';\n import {EcomAuthenticatedHeadersSchema} from '../schema';\n-import {BodySchema} from './schema';\n+import {BodySafesForceSchema, BodySchema} from './schema';\n \n const handler = ApiHandler(async (event) => {\n-  const parsedEvent = parseEvent(event, {\n-    BodySchema,\n-    HeadersSchema: EcomAuthenticatedHeadersSchema,\n-  });\n-  const {bodyData, headersData} = parsedEvent;\n+  let bodyData, headersData;\n+  if (event.rawPath.includes(`/v1/orders/cancel-sf`)) {\n+    ({bodyData} = parseEvent(event, {\n+      BodySchema: BodySafesForceSchema,\n+    }));\n+    headersData = {\n+      'base-site-id': bodyData.baseSiteId,\n+    };\n+  } else {\n+    ({bodyData, headersData} = parseEvent(event, {\n+      BodySchema,\n+      HeadersSchema: EcomAuthenticatedHeadersSchema,\n+    }));\n+  }\n \n   const response = await cancelOrder(bodyData, headersData);\n   return formatResponse(200, response);",
+      "hasFunctionalChange": true,
+      "full_content_length": 958,
+      "full_content": "import {cancelOrder} from '@api-integration-aws/core/services';\nimport {formatResponse} from '@smart/feature-app/node';\nimport {ApiHandler} from 'sst/node/api';\nimport {middyfy} from '../../middleware/middy';\nimport {parseEvent} from '../../utils/parse-event';\nimport {EcomAuthenticatedHeadersSchema} from '../schema';\nimport {BodySafesForceSchema, BodySchema} from './schema';\n\nconst handler = ApiHandler(async (event) => {\n  let bodyData, headersData;\n  if (event.rawPath.includes(`/v1/orders/cancel-sf`)) {\n    ({bodyData} = parseEvent(event, {\n      BodySchema: BodySafesForceSchema,\n    }));\n    headersData = {\n      'base-site-id': bodyData.baseSiteId,\n    };\n  } else {\n    ({bodyData, headersData} = parseEvent(event, {\n      BodySchema,\n      HeadersSchema: EcomAuthenticatedHeadersSchema,\n    }));\n  }\n\n  const response = await cancelOrder(bodyData, headersData);\n  return formatResponse(200, response);\n});\n\nexport const main = middyfy(handler);\n"
+    },
+    {
+      "file": "packages/functions/src/ecom/get-orders/doc.ts",
+      "diff": "diff --git a/packages/functions/src/ecom/get-orders/doc.ts b/packages/functions/src/ecom/get-orders/doc.ts\nindex fcd2c5d..938e58a 100644\n--- a/packages/functions/src/ecom/get-orders/doc.ts\n+++ b/packages/functions/src/ecom/get-orders/doc.ts\n@@ -3,6 +3,7 @@ import {\n   GetOrdersHeadersSchema,\n   GetOrdersPathParamsRequestSchema,\n   GetOrdersQueryParamsRequestSchema,\n+  GetOrdersSFQueryParamsRequestSchema,\n } from './schema';\n \n export const getOrdersDoc: RouteConfig = {\n@@ -73,15 +74,13 @@ export const getOrdersDocHistory: RouteConfig = {\n \n export const getOrdersSFDoc: RouteConfig = {\n   method: `get`,\n-  path: `/ecom/v1/orders-sf/{orderId}`,\n+  path: `/ecom/v1/orders-sf`,\n   summary: `Get order details`,\n   description: `Retrieve detailed information about a specific order by order ID.`,\n   tags: [`ECOM`],\n   security: [{ApiKeyAuth: []}],\n   request: {\n-    headers: GetOrdersHeadersSchema,\n-    query: GetOrdersQueryParamsRequestSchema,\n-    params: GetOrdersPathParamsRequestSchema,\n+    query: GetOrdersSFQueryParamsRequestSchema,\n   },\n   responses: {\n     200: {",
+      "hasFunctionalChange": false
+    },
+    {
+      "file": "packages/functions/src/ecom/get-orders/index.ts",
+      "diff": "diff --git a/packages/functions/src/ecom/get-orders/index.ts b/packages/functions/src/ecom/get-orders/index.ts\nindex 039f57f..e8857c4 100644\n--- a/packages/functions/src/ecom/get-orders/index.ts\n+++ b/packages/functions/src/ecom/get-orders/index.ts\n@@ -11,14 +11,29 @@ import {\n   GetOrdersHistoryQueryParamsSchema,\n   GetOrdersPathParamsRequestSchema,\n   GetOrdersQueryParamsRequestSchema,\n+  GetOrdersSFQueryParamsRequestSchema,\n } from './schema';\n \n const handler = ApiHandler(async (event) => {\n-  const {queryParamsData, headersData, pathParamsData} = parseEvent(event, {\n-    HeadersSchema: GetOrdersHeadersSchema,\n-    QueryParamsSchema: GetOrdersQueryParamsRequestSchema,\n-    PathParamsSchema: GetOrdersPathParamsRequestSchema,\n-  });\n+  let queryParamsData, headersData, pathParamsData;\n+  if (event.rawPath.includes(`/v1/orders-sf`)) {\n+    ({queryParamsData} = parseEvent(event, {\n+      QueryParamsSchema: GetOrdersSFQueryParamsRequestSchema,\n+    }));\n+    headersData = {\n+      [`user-id`]: queryParamsData[`user-id`],\n+      [`base-site-id`]: queryParamsData[`base-site-id`],\n+    };\n+    pathParamsData = {\n+      orderId: queryParamsData[`orderId`],\n+    };\n+  } else {\n+    ({queryParamsData, headersData, pathParamsData} = parseEvent(event, {\n+      HeadersSchema: GetOrdersHeadersSchema,\n+      QueryParamsSchema: GetOrdersQueryParamsRequestSchema,\n+      PathParamsSchema: GetOrdersPathParamsRequestSchema,\n+    }));\n+  }\n \n   const response = await getUserOrder(\n     queryParamsData,",
+      "hasFunctionalChange": true,
+      "full_content_length": 1815,
+      "full_content": "import {\n  getUserOrder,\n  getUserOrderHistory,\n} from '@api-integration-aws/core/index';\nimport {formatResponse} from '@smart/feature-app/node';\nimport {ApiHandler} from 'sst/node/api';\nimport {middyfy} from '../../middleware/middy';\nimport {parseEvent} from '../../utils/parse-event';\nimport {\n  GetOrdersHeadersSchema,\n  GetOrdersHistoryQueryParamsSchema,\n  GetOrdersPathParamsRequestSchema,\n  GetOrdersQueryParamsRequestSchema,\n  GetOrdersSFQueryParamsRequestSchema,\n} from './schema';\n\nconst handler = ApiHandler(async (event) => {\n  let queryParamsData, headersData, pathParamsData;\n  if (event.rawPath.includes(`/v1/orders-sf`)) {\n    ({queryParamsData} = parseEvent(event, {\n      QueryParamsSchema: GetOrdersSFQueryParamsRequestSchema,\n    }));\n    headersData = {\n      [`user-id`]: queryParamsData[`user-id`],\n      [`base-site-id`]: queryParamsData[`base-site-id`],\n    };\n    pathParamsData = {\n      orderId: queryParamsData[`orderId`],\n    };\n  } else {\n    ({queryParamsData, headersData, pathParamsData} = parseEvent(event, {\n      HeadersSchema: GetOrdersHeadersSchema,\n      QueryParamsSchema: GetOrdersQueryParamsRequestSchema,\n      PathParamsSchema: GetOrdersPathParamsRequestSchema,\n    }));\n  }\n\n  const response = await getUserOrder(\n    queryParamsData,\n    headersData,\n    pathParamsData,\n  );\n\n  return formatResponse(200, response);\n});\nconst ordersHistoryHanlder = ApiHandler(async (event) => {\n  const {queryParamsData, headersData} = parseEvent(event, {\n    HeadersSchema: GetOrdersHeadersSchema,\n    QueryParamsSchema: GetOrdersHistoryQueryParamsSchema,\n  });\n\n  const response = await getUserOrderHistory(queryParamsData, headersData);\n\n  return formatResponse(200, response);\n});\n\nexport const main = middyfy(handler);\nexport const ordersHistory = middyfy(ordersHistoryHanlder);\n"
+    },
+    {
+      "file": "stacks/api-stacks/EcomApiStack.ts",
+      "diff": "diff --git a/stacks/api-stacks/EcomApiStack.ts b/stacks/api-stacks/EcomApiStack.ts\nindex 61f7441..e2a6c14 100644\n--- a/stacks/api-stacks/EcomApiStack.ts\n+++ b/stacks/api-stacks/EcomApiStack.ts\n@@ -339,7 +339,7 @@ export function EcomApiStack({stack}: StackContext) {\n         function: getPaymentModes,\n         authorizer: `cdcAuthorizer`,\n       },\n-      'GET /ecom/v1/orders-sf/{orderId}': {\n+      'GET /ecom/v1/orders-sf': {\n         function: getOrders,\n       },\n       'POST /ecom/v1/orders/partial-cancel-sf': {\n",
+      "hasFunctionalChange": false
+    }
+  ],
+  "excludedFiles": [
+    "packages/functions/src/ecom/cancel-order/schema.ts",
+    "packages/functions/src/ecom/get-orders/schema.ts",
+    "packages/functions/src/ecom/partial-cancel/schema.ts"
+  ],
+  "analysis": {
+    "summary": "The PR introduces Salesforce-specific logic paths that are inconsistent with existing service signatures and standard data structures, likely leading to runtime failures and undefined parameters.",
+    "bugs": [
+      {
+        "title": "Incomplete Function Signature Update for getUserOrder",
+        "filePath": "packages/functions/src/ecom/get-orders/index.ts",
+        "lineHint": "Line 38",
+        "description": "While 'cancelOrder' was updated in core to accept 'Partial<EcomAuthenticatedHeaders>', 'getUserOrder' was not. The Salesforce path in 'get-orders' now passes a partial header object (containing only 'user-id' and 'base-site-id') to 'getUserOrder'.",
+        "risk": "If 'getUserOrder' still expects full 'EcomAuthenticatedHeaders' (e.g., requiring 'authorization' or other tokens), the service will fail at runtime or cause downstream authentication errors."
+      },
+      {
+        "title": "Header Property Name Mismatch (Kebab-case vs Camel-case)",
+        "filePath": "packages/functions/src/ecom/cancel-order/index.ts",
+        "lineHint": "Line 16",
+        "description": "The Salesforce logic paths manually construct header objects using raw kebab-case keys (e.g., 'base-site-id') instead of the camel-case properties (e.g., 'baseSiteId') expected by the EcomAuthenticatedHeaders type and core services.",
+        "risk": "Core services and client factories expect the camel-case properties produced by the standard schema parser. Providing kebab-case keys will result in 'undefined' values when the service attempts to access 'headers.baseSiteId', causing failed API requests."
+      },
+      {
+        "title": "Inconsistent Key Access on queryParamsData",
+        "filePath": "packages/functions/src/ecom/get-orders/index.ts",
+        "lineHint": "Line 24",
+        "description": "The Salesforce path in 'get-orders' accesses 'user-id' (kebab-case) and 'orderId' (camel-case) from the same 'queryParamsData' object. This is highly inconsistent and suggests a mapping error.",
+        "risk": "One of these lookups is likely to return 'undefined'. If the schema does not transform 'user-id' to 'userId', then 'orderId' should likely be 'order-id' (or vice versa), leading to missing order IDs or user IDs in the resulting service call."
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Typo in SafesForceSchema",
+        "reason": "The naming 'BodySafesForceSchema' is likely a typo for 'Salesforce', but it is used consistently across imports and usage, so it is not a functional bug."
+      },
+      {
+        "topic": "Path matching with .includes",
+        "reason": "Using .includes('/v1/orders/cancel-sf') might catch multiple Salesforce routes (like partial-cancel), but if the intent is to apply the same Salesforce-specific logic to all such routes, it is not a bug."
+      }
+    ]
+  }
+}

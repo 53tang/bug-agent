@@ -1,0 +1,71 @@
+{
+  "prId": 245,
+  "repoFullName": "smart_eco-platform/api-integration-aws",
+  "prTitle": "Feature/SED remove auth",
+  "timestamp": "2026-02-03T08:54:09.658Z",
+  "filterStats": {
+    "total": 5,
+    "included": 4,
+    "excluded": 1
+  },
+  "changeList": [
+    {
+      "file": "packages/functions/src/salesforce/customer/doc.ts",
+      "diff": "diff --git a/packages/functions/src/salesforce/customer/doc.ts b/packages/functions/src/salesforce/customer/doc.ts\nindex 62f2494f..dd83ae6a 100644\n--- a/packages/functions/src/salesforce/customer/doc.ts\n+++ b/packages/functions/src/salesforce/customer/doc.ts\n@@ -1,6 +1,10 @@\n import type {RouteConfig} from '@asteasolutions/zod-to-openapi';\n import z from 'zod';\n-import {CustomerHeadersSchema, CustomerQueryParamsSchema} from './schema';\n+import {\n+  CustomerHeadersSchema,\n+  CustomerQueryParamsSchema,\n+  CustomerSEDHeadersSchema,\n+} from './schema';\n \n export const getCustomerDoc: RouteConfig = {\n   method: `get`,\n@@ -19,6 +23,23 @@ export const getCustomerDoc: RouteConfig = {\n     },\n   },\n };\n+export const getCustomerSEDDoc: RouteConfig = {\n+  method: `get`,\n+  path: `/salesforce/v1/customer`,\n+  summary: `Get customer information from Salesforce`,\n+  description: `Retrieve customer information from Salesforce based on email, uuid or bpid.`,\n+  tags: [`Salesforce`],\n+  request: {\n+    headers: CustomerSEDHeadersSchema,\n+    query: CustomerQueryParamsSchema,\n+  },\n+  responses: {\n+    200: {\n+      description: `Customer information retrieved successfully`,\n+      content: {},\n+    },\n+  },\n+};\n \n export const getCustomersDoc: RouteConfig = {\n   method: `get`,",
+      "hasFunctionalChange": false
+    },
+    {
+      "file": "packages/functions/src/salesforce/customer/index.ts",
+      "diff": "diff --git a/packages/functions/src/salesforce/customer/index.ts b/packages/functions/src/salesforce/customer/index.ts\nindex 9da82be8..d2eedda0 100644\n--- a/packages/functions/src/salesforce/customer/index.ts\n+++ b/packages/functions/src/salesforce/customer/index.ts\n@@ -13,6 +13,7 @@ import {parseEvent} from '../../utils/parse-event';\n import {\n   CustomerHeadersSchema,\n   CustomerQueryParamsSchema,\n+  CustomerSEDHeadersSchema,\n   CustomersHeadersSchema,\n } from './schema';\n \n@@ -293,8 +294,14 @@ export const getCustomer = async (\n   }\n };\n const customerHandler = ApiHandler(async (event) => {\n+  let headerSchema;\n+  if (event.rawPath.includes(`v1/customer/sed`)) {\n+    headerSchema = CustomerSEDHeadersSchema;\n+  } else {\n+    headerSchema = CustomerHeadersSchema;\n+  }\n   const parsedEvent = parseEvent(event, {\n-    HeadersSchema: CustomerHeadersSchema,\n+    HeadersSchema: headerSchema,\n     QueryParamsSchema: CustomerQueryParamsSchema,\n   });\n ",
+      "hasFunctionalChange": true,
+      "full_content_length": 10074,
+      "full_content_excerpt": "@@ L7-L25 @@\n7|} from '@api-integration-aws/core/services/salesforce';\n8|import {isEmpty} from '@api-integration-aws/core/util';\n9|import {formatResponse} from '@smart/feature-app/node';\n10|import {ApiHandler} from 'sst/node/api';\n11|import {middyfy} from '../../middleware/middy';\n12|import {parseEvent} from '../../utils/parse-event';\n13|import {\n14|  CustomerHeadersSchema,\n15|  CustomerQueryParamsSchema,\n16|  CustomerSEDHeadersSchema,\n17|  CustomersHeadersSchema,\n18|} from './schema';\n19|\n20|interface SalesforceAddress {\n21|  street?: string;\n22|  city?: string;\n23|  postalCode?: string;\n24|  state?: string;\n25|  country?: string;\n@@ L288-L313 @@\n288|      'response-data': {\n289|        output: Array.isArray(customerData?.records)\n290|          ? customerData.records?.map(transformCustomerData) || []\n291|          : customerData,\n292|      },\n293|    };\n294|  }\n295|};\n296|const customerHandler = ApiHandler(async (event) => {\n297|  let headerSchema;\n298|  if (event.rawPath.includes(`v1/customer/sed`)) {\n299|    headerSchema = CustomerSEDHeadersSchema;\n300|  } else {\n301|    headerSchema = CustomerHeadersSchema;\n302|  }\n303|  const parsedEvent = parseEvent(event, {\n304|    HeadersSchema: headerSchema,\n305|    QueryParamsSchema: CustomerQueryParamsSchema,\n306|  });\n307|\n308|  const {headersData, queryParamsData} = parsedEvent;\n309|  const res = await getCustomer(headersData, queryParamsData);\n310|  return formatResponse(200, res);\n311|});\n312|\n313|const customersHandler = ApiHandler(async (event) => {",
+      "full_content_truncated": true
+    },
+    {
+      "file": "packages/functions/src/salesforce/docs.ts",
+      "diff": "diff --git a/packages/functions/src/salesforce/docs.ts b/packages/functions/src/salesforce/docs.ts\nindex 71ef151e..d683337e 100644\n--- a/packages/functions/src/salesforce/docs.ts\n+++ b/packages/functions/src/salesforce/docs.ts\n@@ -10,7 +10,11 @@ import {\n import {bookAppointmentV2Doc} from './appointment-v2/doc';\n import {getAssetDoc, updateAssetDoc} from './asset/doc';\n import {createCaseDoc} from './create-case/doc';\n-import {getCustomerDoc, getCustomersDoc} from './customer/doc';\n+import {\n+  getCustomerDoc,\n+  getCustomerSEDDoc,\n+  getCustomersDoc,\n+} from './customer/doc';\n import {customerActivitiesGetDoc} from './customer-activities/doc';\n import {getCustomerEmailsDoc} from './customer-emails/doc';\n import {customerStatusSfidDoc} from './customer-status-sfid/doc';\n@@ -73,6 +77,7 @@ export default {\n     updateAssetHandoverDoc,\n     bookAppointmentV2Doc,\n     customerStatusSfidDoc,\n+    getCustomerSEDDoc,\n     updateQuoteStatusDoc,\n     updateProductsDoc,\n     orderCancelDoc,",
+      "hasFunctionalChange": false
+    },
+    {
+      "file": "stacks/api-stacks/SalesforceApiStack.ts",
+      "diff": "diff --git a/stacks/api-stacks/SalesforceApiStack.ts b/stacks/api-stacks/SalesforceApiStack.ts\nindex 9d2e490e..25318a75 100644\n--- a/stacks/api-stacks/SalesforceApiStack.ts\n+++ b/stacks/api-stacks/SalesforceApiStack.ts\n@@ -164,6 +164,9 @@ export function SalesforceApiStack({stack}: StackContext) {\n         function: getCustomer,\n         authorizer: `cdcAuthorizer`,\n       },\n+      'GET /salesforce/v1/customer/sed': {\n+        function: getCustomer,\n+      },\n       'GET /salesforce/v1/customers': {\n         function: getCustomers,\n         authorizer: `cdcAuthorizer`,\n",
+      "hasFunctionalChange": true,
+      "full_content_length": 5727,
+      "full_content_excerpt": "@@ L158-L178 @@\n158|        function: customerActities,\n159|      },\n160|      'GET /salesforce/v1/customers/{uuid}/activities': {\n161|        function: customerActities,\n162|      },\n163|      'GET /salesforce/v1/customer': {\n164|        function: getCustomer,\n165|        authorizer: `cdcAuthorizer`,\n166|      },\n167|      'GET /salesforce/v1/customer/sed': {\n168|        function: getCustomer,\n169|      },\n170|      'GET /salesforce/v1/customers': {\n171|        function: getCustomers,\n172|        authorizer: `cdcAuthorizer`,\n173|      },\n174|      'GET /salesforce/v1/customer/{uuid}/emails': {\n175|        function: getCustomerEmails,\n176|        authorizer: `cdcAuthorizer`,\n177|      },\n178|      'PUT /salesforce/v1/outlet-involvement': {",
+      "full_content_truncated": true
+    }
+  ],
+  "excludedFiles": [
+    "packages/functions/src/salesforce/customer/schema.ts"
+  ],
+  "analysis": {
+    "summary": "The PR introduces high-severity functional bugs including a documentation path conflict that breaks the API contract and missing exports for the Lambda handlers.",
+    "bugs": [
+      {
+        "title": "OpenAPI Path Conflict",
+        "filePath": "packages/functions/src/salesforce/customer/doc.ts",
+        "lineHint": "Line 27",
+        "description": "The new getCustomerSEDDoc incorrectly defines its path as '/salesforce/v1/customer', which is identical to the existing getCustomerDoc route. The actual API route defined in the stack is '/salesforce/v1/customer/sed'.",
+        "risk": "This causes a collision in the generated OpenAPI/Swagger specification where two GET methods exist for the same path. This will break automated client generation and prevent the new SED endpoint from being correctly documented or discoverable."
+      },
+      {
+        "title": "Lambda Handler Export and Signature Mismatch",
+        "filePath": "packages/functions/src/salesforce/customer/index.ts",
+        "lineHint": "Line 296",
+        "description": "The logic function 'getCustomer' is exported with a new signature (expecting headers and query parameters), while the actual API handlers 'customerHandler' and 'customersHandler' are not exported. Since the API stack refers to 'getCustomer' and 'getCustomers', there is a mismatch between the expected Lambda entry point and the available exports.",
+        "risk": "The Lambda function will fail at runtime. If it invokes 'getCustomer' directly, it will receive the Lambda event object instead of the expected header/query data, leading to logic failures. If it tries to invoke the non-exported handlers, the Lambda execution will crash immediately with an export error."
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Conditional Schema Switching",
+        "reason": "Checking event.rawPath to switch between CustomerSEDHeadersSchema and CustomerHeadersSchema is an intentional design to support both authenticated and unauthenticated access within the same Lambda function."
+      },
+      {
+        "topic": "Shared Logic Function",
+        "reason": "Calling the shared 'getCustomer' logic from both paths is intended, as the feature aims to provide the same data access but with different authentication requirements for SED."
+      }
+    ]
+  }
+}

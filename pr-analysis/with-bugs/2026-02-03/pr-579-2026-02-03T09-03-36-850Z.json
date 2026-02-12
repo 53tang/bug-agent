@@ -1,0 +1,34 @@
+{
+  "prId": 579,
+  "repoFullName": "smart_eco-platform/my-account-feature-app",
+  "prTitle": "feat: replace jfrog with aliyun",
+  "timestamp": "2026-02-03T09:03:36.850Z",
+  "filterStats": {
+    "total": 2,
+    "included": 1,
+    "excluded": 1
+  },
+  "changeList": [
+    {
+      "file": ".npmrc",
+      "diff": "diff --git a/.npmrc b/.npmrc\ndeleted file mode 100644\nindex e27c5d54..00000000\n--- a/.npmrc\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-always-auth=true\n-@smart:registry=https://ecoplatform.jfrog.io/artifactory/api/npm/npm-eco-platform/",
+      "hasFunctionalChange": false
+    }
+  ],
+  "excludedFiles": [
+    "pnpm-lock.yaml"
+  ],
+  "analysis": {
+    "summary": "The PR removes the JFrog registry configuration but fails to provide the Aliyun replacement specified in the title, leading to an incomplete migration.",
+    "bugs": [
+      {
+        "title": "Missing Aliyun registry configuration",
+        "filePath": ".npmrc",
+        "lineHint": "Line 1",
+        "description": "The .npmrc file containing the @smart scoped registry configuration was deleted, but no replacement for the Aliyun registry (as indicated by the PR title) was added to the repository.",
+        "risk": "This is an incomplete update that will cause high-severity functional failures. Specifically, package managers (npm/pnpm/yarn) will fail to resolve or authenticate packages under the @smart scope during installation, breaking the build and deployment pipeline."
+      }
+    ],
+    "notBugs": []
+  }
+}

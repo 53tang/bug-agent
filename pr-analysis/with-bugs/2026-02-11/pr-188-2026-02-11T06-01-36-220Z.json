@@ -1,0 +1,65 @@
+{
+  "prId": 188,
+  "repoFullName": "smart_eco-platform/comparison-feature-app",
+  "prTitle": "Feature/IBR-14679 update discount",
+  "timestamp": "2026-02-11T06:01:36.220Z",
+  "filterStats": {
+    "total": 2,
+    "included": 2,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "src/feature-app/components/line-box/index.tsx",
+      "diff": "diff --git a/src/feature-app/components/line-box/index.tsx b/src/feature-app/components/line-box/index.tsx\nindex f6f3dbd..d8bd4c2 100644\n--- a/src/feature-app/components/line-box/index.tsx\n+++ b/src/feature-app/components/line-box/index.tsx\n@@ -335,15 +335,17 @@ export const LineBox: React.FC<LineBoxProps> = ({\n       t(`discount.usePercentageDiscount`) === `true`\n         ? `-${\n             showVat\n-              ? (product?.promoBadgePrice?.discount?.totalDiscountPercentage ??\n-                ``)\n-              : (product?.promoBadgePrice?.notDiscount\n-                  ?.totalDiscountPercentage ?? ``)\n+              ? product?.promoBadgePrice?.discount?.totalDiscountPercentage ||\n+                ``\n+              : product?.promoBadgePrice?.netDiscount\n+                  ?.totalDiscountPercentage ||\n+                product?.promoBadgePrice?.discount?.totalDiscountPercentage\n           }%`\n         : `${\n             showVat\n-              ? (product?.promoBadgePrice?.discount?.totalDiscount ?? ``)\n-              : (product?.promoBadgePrice?.notDiscount?.totalDiscount ?? ``)\n+              ? product?.promoBadgePrice?.discount?.formattedValue || ``\n+              : product?.promoBadgePrice?.netDiscount?.formattedValue ||\n+                product?.promoBadgePrice?.discount?.formattedValue\n           }`;\n     const staticText = template.replace(placeholder, ``);\n     const trimmedStaticText =\n@@ -526,7 +528,7 @@ export const LineBox: React.FC<LineBoxProps> = ({\n                           ? showVat\n                             ? product?.promoBadgePrice?.discount\n                                 ?.discountedFormattedValue\n-                            : product?.promoBadgePrice?.notDiscount\n+                            : product?.promoBadgePrice?.netDiscount\n                                 ?.discountedFormattedValue\n                           : price}\n                       </span>",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 23129,
+      "full_content_excerpt": "@@ L320-L366 @@\n320|      ),\n321|      aspectRatio: path.indexOf(`ppo_{{pno18}}`) > -1 ? `16-9` : `1-1`,\n322|    }));\n323|\n324|  const isDisabledAddCart =\n325|    product.stock.stockLevelStatus === `outOfStock` || isDemoVehicle;\n326|\n327|  const replacePricePlaceholder = (\n328|    text: string,\n329|    discountPrice?: string,\n330|  ): React.ReactNode => {\n331|    const parts = text.split(`{{price}}`);\n332|    const template = t(`discount.tag`);\n333|    const placeholder = `{{discountTagPrice}}`;\n334|    const dynamicValue =\n335|      t(`discount.usePercentageDiscount`) === `true`\n336|        ? `-${\n337|            showVat\n338|              ? product?.promoBadgePrice?.discount?.totalDiscountPercentage ||\n339|                ``\n340|              : product?.promoBadgePrice?.netDiscount\n341|                  ?.totalDiscountPercentage ||\n342|                product?.promoBadgePrice?.discount?.totalDiscountPercentage\n343|          }%`\n344|        : `${\n345|            showVat\n346|              ? product?.promoBadgePrice?.discount?.formattedValue || ``\n347|              : product?.promoBadgePrice?.netDiscount?.formattedValue ||\n348|                product?.promoBadgePrice?.discount?.formattedValue\n349|          }`;\n350|    const staticText = template.replace(placeholder, ``);\n351|    const trimmedStaticText =\n352|      staticText.length > 25\n353|        ? staticText.slice(0, 25 - dynamicValue.length)\n354|        : staticText;\n355|    const displayTagText = template\n356|      .replace(placeholder, dynamicValue)\n357|      .replace(staticText, trimmedStaticText);\n358|    return (\n359|      <div className={styles.originalPriceContent}>\n360|        <span>{parts[0]}</span>\n361|        <Text tag=\"span\" className={styles.originalPrice}>\n362|          {discountPrice}\n363|        </Text>\n364|        <span className={styles.priceSuffix}>{parts[1]}</span>\n365|        <Tag variant=\"brabus\" className={styles.tag}>\n366|          {displayTagText}\n@@ L513-L549 @@\n513|                      : prefixForLeasingPriceValue || `List price`}\n514|                    {isDiscountApplicable && (\n515|                      <sup>{t(`discount.priceLabelSuperscript`)}</sup>\n516|                    )}\n517|                  </p>\n518|                  {isPriceLoading ? (\n519|                    <Loader size=\"small\" messageId=\"\" />\n520|                  ) : (\n521|                    <p className={styles.price}>\n522|                      <span\n523|                        className={classnames({\n524|                          [styles.priceLabel!]: isDiscountApplicable,\n525|                        })}\n526|                      >\n527|                        {isDiscountApplicable\n528|                          ? showVat\n529|                            ? product?.promoBadgePrice?.discount\n530|                                ?.discountedFormattedValue\n531|                            : product?.promoBadgePrice?.netDiscount\n532|                                ?.discountedFormattedValue\n533|                          : price}\n534|                      </span>\n535|                      &nbsp;\n536|                      <span className={styles.term}>{cashBuyTaxLabel}</span>\n537|                    </p>\n538|                  )}\n539|                  {isDiscountApplicable ? (\n540|                    <>\n541|                      {replacePricePlaceholder(\n542|                        t(`discount.listPriceDiscription`),\n543|                        isDiscountApplicable ? price : undefined,\n544|                      )}\n545|                    </>\n546|                  ) : (\n547|                    <div className={styles.originalPriceContent}></div>\n548|                  )}\n549|                </div>",
+      "full_content_truncated": true
+    },
+    {
+      "file": "src/types/vehicle-line-data.ts",
+      "diff": "diff --git a/src/types/vehicle-line-data.ts b/src/types/vehicle-line-data.ts\nindex 57c1f6a..abd645d 100644\n--- a/src/types/vehicle-line-data.ts\n+++ b/src/types/vehicle-line-data.ts\n@@ -156,7 +156,7 @@ export interface CompareProduct {\n   badges: Badge[];\n   promoBadgePrice?: {\n     discount?: DiscountPrice;\n-    notDiscount?: DiscountPrice;\n+    netDiscount?: DiscountPrice;\n     purchasable?: boolean;\n     rimCode?: string;\n   };\n",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "gemini-3-flash-preview",
+      "elapsedMs": 37025,
+      "promptTokens": 3189,
+      "responseTokens": null,
+      "totalTokens": 8761,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": 5137,
+      "source": "usageMetadata"
+    }
+  ],
+  "analysis": {
+    "summary": "The PR introduces a functional inconsistency where the main price display fails to provide a fallback for net discounts, potentially leading to missing prices in the UI.",
+    "bugs": [
+      {
+        "title": "Missing fallback for net discounted price",
+        "filePath": "src/feature-app/components/line-box/index.tsx",
+        "lineHint": "Line 531",
+        "description": "In the main price display logic, when 'showVat' is false (net price view), the code only attempts to read from 'netDiscount'. This is inconsistent with the 'replacePricePlaceholder' logic (Lines 340-348) which correctly falls back to 'discount' if 'netDiscount' is missing. If a product has a discount but the 'netDiscount' object is missing from the API response, the price will render as empty/undefined.",
+        "risk": "In the net-price view, the primary price of a product will disappear from the UI if the backend provides discount information only in the gross ('discount') field but 'isDiscountApplicable' remains true.",
+        "codeSnippet": "                          ? showVat\n                            ? product?.promoBadgePrice?.discount\n                                ?.discountedFormattedValue\n-                            : product?.promoBadgePrice?.notDiscount\n+                            : product?.promoBadgePrice?.netDiscount\n                                ?.discountedFormattedValue\n                          : price}"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Renaming notDiscount to netDiscount",
+        "reason": "This is a consistent refactor across the interface and the component to align with backend naming conventions."
+      },
+      {
+        "topic": "Property change from totalDiscount to formattedValue",
+        "reason": "This appears to be an intentional schema update. The code correctly maps the new property names for both the discount percentage and the formatted currency values."
+      }
+    ]
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "prId": 254,
+  "repoFullName": "smart_eco-platform/api-integration-aws",
+  "prTitle": "feat(consents): refactor subscription and preference mapping logic",
+  "timestamp": "2026-02-06T09:44:01.952Z",
+  "filterStats": {
+    "total": 1,
+    "included": 1,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "packages/functions/src/cdc/consents/index.ts",
+      "diff": "diff --git a/packages/functions/src/cdc/consents/index.ts b/packages/functions/src/cdc/consents/index.ts\nindex 37dfcb2..00f4919 100644\n--- a/packages/functions/src/cdc/consents/index.ts\n+++ b/packages/functions/src/cdc/consents/index.ts\n@@ -82,20 +82,16 @@ const handler = ApiHandler(async (event) => {\n     UID: accountData.UID,\n     email: accountData.profile?.email,\n     subscriptions: accountData.subscriptions\n-      ? Object.entries(accountData.subscriptions).map(\n-          ([key, value]: [string, any]) => ({\n-            Name: key,\n-            isSubscribed: deepFind(value, `isSubscribed`)\n-              .map((item) =>\n-                Array.isArray(item) ? item.join(``) : item?.toString() || ``,\n-              )\n-              .join(``),\n-          }),\n-        )\n+      ? Object.entries(accountData.subscriptions)\n+          .map(([key, value]: [string, any]) => ({\n+            name: key,\n+            isSubscribed: deepFind(value, `isSubscribed`)[0],\n+          }))\n+          .filter((it) => it.name)\n       : [],\n     preferences: accountData.preferences\n-      ? Object.entries(accountData.preferences).map(\n-          ([_key, value]: [string, any]) => {\n+      ? Object.entries(accountData.preferences)\n+          .map(([_key, value]: [string, any]) => {\n             const customDataArrays = deepFind(value, `customData`);\n             let name = ``;\n \n@@ -106,16 +102,14 @@ const handler = ApiHandler(async (event) => {\n               }\n             }\n             const isConsentGrantedValues = deepFind(value, `isConsentGranted`);\n-            const isConsentGranted = isConsentGrantedValues\n-              .map((item) => item?.toString() || ``)\n-              .join(``);\n+            const isConsentGranted = isConsentGrantedValues[0];\n \n             return {\n-              Name: name,\n+              name,\n               isConsentGranted,\n             };\n-          },\n-        )\n+          })\n+          .filter((it) => it.name)\n       : [],\n   };\n \n",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 4121,
+      "full_content_excerpt": "@@ L67-L123 @@\n67|    accountData = response?.results?.[0];\n68|    if (!accountData) {\n69|      throw new Error(`No Result Found for given input.`);\n70|    }\n71|  } else {\n72|    const response = await getAccountInfo({\n73|      UID: queryParamsData.uuid || ``,\n74|      include: `loginIDs,emails,profile,data,lastLoginLocation,regSource,rba,subscriptions,preferences,groups`,\n75|      extraProfileFields: `languages,address,phones,education,educationLevel,honors,publications,patents,certifications,professionalHeadline,bio,industry,specialities,work,skills,religion,politicalView,interestedIn,relationshipStatus,hometown,favorites,followersCount,followingCount,username,name,locale,verified,timezone,likes,samlData`,\n76|      httpStatusCodes: true,\n77|    });\n78|    accountData = response || {};\n79|  }\n80|\n81|  const formattedResponse = {\n82|    UID: accountData.UID,\n83|    email: accountData.profile?.email,\n84|    subscriptions: accountData.subscriptions\n85|      ? Object.entries(accountData.subscriptions)\n86|          .map(([key, value]: [string, any]) => ({\n87|            name: key,\n88|            isSubscribed: deepFind(value, `isSubscribed`)[0],\n89|          }))\n90|          .filter((it) => it.name)\n91|      : [],\n92|    preferences: accountData.preferences\n93|      ? Object.entries(accountData.preferences)\n94|          .map(([_key, value]: [string, any]) => {\n95|            const customDataArrays = deepFind(value, `customData`);\n96|            let name = ``;\n97|\n98|            for (const customData of customDataArrays) {\n99|              if (Array.isArray(customData)) {\n100|                name = extractNameFromCustomData(customData);\n101|                if (name) break;\n102|              }\n103|            }\n104|            const isConsentGrantedValues = deepFind(value, `isConsentGranted`);\n105|            const isConsentGranted = isConsentGrantedValues[0];\n106|\n107|            return {\n108|              name,\n109|              isConsentGranted,\n110|            };\n111|          })\n112|          .filter((it) => it.name)\n113|      : [],\n114|  };\n115|\n116|  return formatResponse(200, {\n117|    'code': 200,\n118|    'response-data': formattedResponse,\n119|  });\n120|});\n121|\n122|export const main = middyfy(handler);\n123|",
+      "full_content_truncated": true
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "gemini-3-flash-preview",
+      "elapsedMs": 59932,
+      "promptTokens": 2869,
+      "responseTokens": null,
+      "totalTokens": 11828,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": 8097,
+      "source": "usageMetadata"
+    }
+  ],
+  "analysis": {
+    "summary": "The refactor introduces high-severity breaking changes to the API contract by renaming response fields and altering data types, which will likely cause failures in downstream consumers.",
+    "bugs": [
+      {
+        "title": "Breaking API Change: Response Field Renaming",
+        "filePath": "packages/functions/src/cdc/consents/index.ts",
+        "lineHint": "Line 87",
+        "description": "The response field names have been changed from 'Name' (PascalCase) to 'name' (camelCase) for both the subscriptions and preferences objects. Since this is an API handler, any frontend or mobile consumer expecting the 'Name' property will now receive undefined.",
+        "risk": "This is a confirmed breaking change. Downstream applications will fail to display or process subscription and preference names, leading to a broken user interface or runtime errors in typed environments.",
+        "codeSnippet": "-            Name: key,\n-            isSubscribed: deepFind(value, `isSubscribed`)\n+            name: key,\n+            isSubscribed: deepFind(value, `isSubscribed`)[0],"
+      },
+      {
+        "title": "Data Type Mismatch and Potential Field Omission",
+        "filePath": "packages/functions/src/cdc/consents/index.ts",
+        "lineHint": "Line 88",
+        "description": "The logic for 'isSubscribed' and 'isConsentGranted' was changed from returning a stringified, joined value (e.g., 'true') to returning the raw first element of an array (e.g., the boolean true). If the array is empty, it now returns 'undefined', whereas it previously returned an empty string.",
+        "risk": "Consumers expecting a string will receive a boolean or null/undefined, potentially causing logic errors. Furthermore, 'undefined' values are typically omitted during JSON serialization, which will cause keys to be missing from the response entirely, leading to 'cannot read property of undefined' crashes in clients.",
+        "codeSnippet": "-            const isConsentGranted = isConsentGrantedValues\n-              .map((item) => item?.toString() || ``)\n-              .join(``);\n+            const isConsentGranted = isConsentGrantedValues[0];"
+      },
+      {
+        "title": "Functional Data Loss via Entry Filtering",
+        "filePath": "packages/functions/src/cdc/consents/index.ts",
+        "lineHint": "Line 112",
+        "description": "A new .filter((it) => it.name) was added to the preferences mapping. Previously, all preference entries were returned even if a name could not be resolved. Now, any preference where the name mapping fails is silently dropped from the response.",
+        "risk": "This causes silent data loss. If a user has a consent preference that the system fails to map a name for, that preference will now be completely missing from the API response, making it impossible for the user to view or manage that consent.",
+        "codeSnippet": "-              isConsentGranted,\n-            };\n-          },\n-        )\n+              isConsentGranted,\n+            };\n+          })\n+          .filter((it) => it.name)"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Gigya Object Keys",
+        "reason": "The use of 'key' in the subscription mapping is safe because Gigya subscription objects use the subscription ID as the property key, which is guaranteed to be a string."
+      },
+      {
+        "topic": "DeepFind Array Access",
+        "reason": "While taking the first element [0] is a change in behavior, it is likely more accurate for CDC structures where these fields are expected to be singular, though the risk of omission (as reported in bugs) remains."
+      }
+    ]
+  }
+}

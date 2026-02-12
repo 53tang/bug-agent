@@ -1,0 +1,74 @@
+{
+  "prId": 255,
+  "repoFullName": "smart_eco-platform/api-integration-aws",
+  "prTitle": "Feature/salesforce fix 0202",
+  "timestamp": "2026-02-06T10:04:09.766Z",
+  "filterStats": {
+    "total": 2,
+    "included": 2,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "packages/functions/src/cpi/orders/index.ts",
+      "diff": "diff --git a/packages/functions/src/cpi/orders/index.ts b/packages/functions/src/cpi/orders/index.ts\nindex bce6d615..077a0193 100644\n--- a/packages/functions/src/cpi/orders/index.ts\n+++ b/packages/functions/src/cpi/orders/index.ts\n@@ -33,7 +33,11 @@ const handler = ApiHandler(async (event) => {\n     },\n   });\n \n-  return formatResponse(200, response);\n+  return formatResponse(200, {\n+    'code': 200,\n+    'info': `SUCCESS`,\n+    'response-data': response.Responses.SPTResponse,\n+  });\n });\n \n export const main = middyfy(handler);",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false,
+      "full_content_length": 1164,
+      "full_content": "import {postCPIOrder} from '@api-integration-aws/core/services';\nimport {formatResponse} from '@smart/feature-app/node';\nimport {ApiHandler} from 'sst/node/api';\nimport {middyfy} from '../../middleware/middy';\nimport {parseEvent} from '../../utils/parse-event';\nimport {PostOrderBodySchema} from './schema';\n\nconst handler = ApiHandler(async (event) => {\n  const parsedEvent = parseEvent(event, {\n    BodySchema: PostOrderBodySchema,\n  });\n\n  const {bodyData} = parsedEvent;\n\n  const body = bodyData.map((item) => {\n    return {\n      po: item.Name,\n      pn18: item.PN18__c,\n      poWeek: item.PO_Week__c,\n      quantity: item.Quantity__c,\n      marketCode: item.Market_Code__c,\n      productionDate: item.Requested_Production_Date__c,\n      b2bFlag: item.B2B__c,\n      advanceFlag: item.Advance__c,\n      isurgentFlag: item.Is_Urgent__c,\n      priority: item.Priority__c,\n    };\n  });\n\n  const response = await postCPIOrder({\n    messageHeader: {\n      messageContent: body,\n    },\n  });\n\n  return formatResponse(200, {\n    'code': 200,\n    'info': `SUCCESS`,\n    'response-data': response.Responses.SPTResponse,\n  });\n});\n\nexport const main = middyfy(handler);\n"
+    },
+    {
+      "file": "packages/functions/src/ecom/get-orders/index.ts",
+      "diff": "diff --git a/packages/functions/src/ecom/get-orders/index.ts b/packages/functions/src/ecom/get-orders/index.ts\nindex e8857c4d..53295744 100644\n--- a/packages/functions/src/ecom/get-orders/index.ts\n+++ b/packages/functions/src/ecom/get-orders/index.ts\n@@ -15,7 +15,7 @@ import {\n } from './schema';\n \n const handler = ApiHandler(async (event) => {\n-  let queryParamsData, headersData, pathParamsData;\n+  let queryParamsData, headersData, pathParamsData, response;\n   if (event.rawPath.includes(`/v1/orders-sf`)) {\n     ({queryParamsData} = parseEvent(event, {\n       QueryParamsSchema: GetOrdersSFQueryParamsRequestSchema,\n@@ -27,20 +27,18 @@ const handler = ApiHandler(async (event) => {\n     pathParamsData = {\n       orderId: queryParamsData[`orderId`],\n     };\n+    response = await getUserOrder(queryParamsData, headersData, pathParamsData);\n+    response[`response-data`].paymentType =\n+      response[`response-data`].paymentType.code;\n   } else {\n     ({queryParamsData, headersData, pathParamsData} = parseEvent(event, {\n       HeadersSchema: GetOrdersHeadersSchema,\n       QueryParamsSchema: GetOrdersQueryParamsRequestSchema,\n       PathParamsSchema: GetOrdersPathParamsRequestSchema,\n     }));\n+    response = await getUserOrder(queryParamsData, headersData, pathParamsData);\n   }\n \n-  const response = await getUserOrder(\n-    queryParamsData,\n-    headersData,\n-    pathParamsData,\n-  );\n-\n   return formatResponse(200, response);\n });\n const ordersHistoryHanlder = ApiHandler(async (event) => {\n",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 1978,
+      "full_content": "import {\n  getUserOrder,\n  getUserOrderHistory,\n} from '@api-integration-aws/core/index';\nimport {formatResponse} from '@smart/feature-app/node';\nimport {ApiHandler} from 'sst/node/api';\nimport {middyfy} from '../../middleware/middy';\nimport {parseEvent} from '../../utils/parse-event';\nimport {\n  GetOrdersHeadersSchema,\n  GetOrdersHistoryQueryParamsSchema,\n  GetOrdersPathParamsRequestSchema,\n  GetOrdersQueryParamsRequestSchema,\n  GetOrdersSFQueryParamsRequestSchema,\n} from './schema';\n\nconst handler = ApiHandler(async (event) => {\n  let queryParamsData, headersData, pathParamsData, response;\n  if (event.rawPath.includes(`/v1/orders-sf`)) {\n    ({queryParamsData} = parseEvent(event, {\n      QueryParamsSchema: GetOrdersSFQueryParamsRequestSchema,\n    }));\n    headersData = {\n      [`user-id`]: queryParamsData[`user-id`],\n      [`base-site-id`]: queryParamsData[`base-site-id`],\n    };\n    pathParamsData = {\n      orderId: queryParamsData[`orderId`],\n    };\n    response = await getUserOrder(queryParamsData, headersData, pathParamsData);\n    response[`response-data`].paymentType =\n      response[`response-data`].paymentType.code;\n  } else {\n    ({queryParamsData, headersData, pathParamsData} = parseEvent(event, {\n      HeadersSchema: GetOrdersHeadersSchema,\n      QueryParamsSchema: GetOrdersQueryParamsRequestSchema,\n      PathParamsSchema: GetOrdersPathParamsRequestSchema,\n    }));\n    response = await getUserOrder(queryParamsData, headersData, pathParamsData);\n  }\n\n  return formatResponse(200, response);\n});\nconst ordersHistoryHanlder = ApiHandler(async (event) => {\n  const {queryParamsData, headersData} = parseEvent(event, {\n    HeadersSchema: GetOrdersHeadersSchema,\n    QueryParamsSchema: GetOrdersHistoryQueryParamsSchema,\n  });\n\n  const response = await getUserOrderHistory(queryParamsData, headersData);\n\n  return formatResponse(200, response);\n});\n\nexport const main = middyfy(handler);\nexport const ordersHistory = middyfy(ordersHistoryHanlder);\n"
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "gemini-3-flash-preview",
+      "elapsedMs": 67610,
+      "promptTokens": 3077,
+      "responseTokens": null,
+      "totalTokens": 15730,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": 12026,
+      "source": "usageMetadata"
+    }
+  ],
+  "analysis": {
+    "summary": "The PR introduces several high-severity runtime crash risks and incorrect error handling by assuming API responses always contain nested data structures and hardcoding success responses.",
+    "bugs": [
+      {
+        "title": "Runtime crash on failed order retrieval in Salesforce path",
+        "filePath": "packages/functions/src/ecom/get-orders/index.ts",
+        "lineHint": "Line 31",
+        "description": "The code performs unsafe nested property access on 'response-data' immediately after calling getUserOrder. If the API call returns an error structure (e.g., 404 or 500) that lacks the 'response-data' key, the application will crash with a TypeError.",
+        "risk": "In the event of any downstream service failure or missing order, the Lambda will crash with a 500 Internal Server Error instead of returning the proper error information to the client.",
+        "codeSnippet": "+    response = await getUserOrder(queryParamsData, headersData, pathParamsData);\n+    response[`response-data`].paymentType =\n+      response[`response-data`].paymentType.code;"
+      },
+      {
+        "title": "Hardcoded success response and runtime crash risk in CPI orders",
+        "filePath": "packages/functions/src/cpi/orders/index.ts",
+        "lineHint": "Line 36",
+        "description": "The handler now hardcodes 'code: 200' and 'info: SUCCESS' while extracting 'response.Responses.SPTResponse'. If postCPIOrder returns an error or a structure without 'Responses', the code will crash. If it returns an error structure that happens to have the 'Responses' key, the API will incorrectly report success to the caller.",
+        "risk": "Critical failure in error propagation; failed order creations will either crash the service or be reported as successful to Salesforce/callers, leading to data inconsistency.",
+        "codeSnippet": "+  return formatResponse(200, {\n+    'code': 200,\n+    'info': `SUCCESS`,\n+    'response-data': response.Responses.SPTResponse,\n+  });"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Manual header construction for Salesforce",
+        "reason": "While stripping standard headers (like Authorization) in the Salesforce path is risky, it appears to be an intentional design choice for this specific endpoint to map query parameters to headers for compatibility."
+      },
+      {
+        "topic": "Shadowing or undefined variables",
+        "reason": "All variables (queryParamsData, headersData, pathParamsData, response) are properly declared at the handler scope and assigned within both branches of the conditional logic."
+      }
+    ]
+  }
+}
