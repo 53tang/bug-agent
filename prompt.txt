@@ -1,0 +1,100 @@
+{{PROMPT}}
+
+PR Context:
+- Title: {{PR_TITLE}}
+- Repo: {{REPO}}
+- PR ID: {{PR_ID}}
+
+Business Context (Domain Knowledge):
+- EXTENDED_CONNECTED_SERVICE and CONNECTED_SERVICE both refer to PCP (Personal Connected Service)
+- CONNECTED_SERVICE is free for 1 year, EXTENDED_CONNECTED_SERVICE requires payment
+- When analyzing tracking or product logic, consider these are related to the same business feature
+
+Changed Files Analysis:
+{{CHANGE_LIST}}
+
+Note: Some entries may include only "diff" (no full_content). Do not assume missing context.
+Note: Some entries may include "full_content_excerpt" when files are large; do not treat missing full_content as a bug.
+Note: If the PR touches many files, full_content may be omitted for all files (diff-only analysis).
+
+CRITICAL: Focus ONLY on HIGH severity, functional, CONFIRMED bugs that will cause incorrect behavior.
+
+OUTPUT: Provide a concise bullet list of potential bugs. For each bug:
+- File path and line hint
+- What the bug is (short, simple wording)
+- Why it's risky (must be HIGH severity - will cause runtime errors or incorrect behavior)
+
+OUTPUT FORMAT: Return STRICT JSON only (no markdown, no code fences).
+Schema:
+{
+  "summary": "short sentence",
+  "bugs": [
+    {
+      "title": "short title",
+      "filePath": "path",
+      "lineHint": "Line 123",
+      "description": "what the bug is",
+      "risk": "why it's risky",
+      "codeSnippet": "3-5 lines from diff showing the bug"
+    }
+  ],
+  "notBugs": [
+    {
+      "topic": "short label",
+      "reason": "why not a bug"
+    }
+  ]
+}
+Limit bugs to at most 3 items.
+
+IMPORTANT: For EVERY bug, you MUST include a 'codeSnippet' field with 3-5 lines from the diff:
+- Extract the exact lines from the provided diff that show the problematic code
+- Include lines with + or - prefixes to show what was added/removed
+- Add 1-2 lines of unchanged context (no prefix or with space prefix) before/after
+- Keep snippets focused and concise (3-5 lines maximum)
+- Use literal \n for line breaks in the JSON string
+- Example: "  analyticsData,\n+ products,\n  },\n} = appContextData as AppModel;"
+- The codeSnippet field is REQUIRED, not optional
+
+Known non-bugs (do NOT report):
+- ReferenceError for missing/undefined symbols (ignore; handled by lint)
+- Configurable endpoints (URL can be set via config/env)
+- Edit flows that use POST (not GET)
+- CDC paths that intentionally omit fields by design
+- Differences between two intentional code paths (feature flags, env switches, conditionals) are expected if each path is internally consistent
+  Examples: CDC vs Mulesoft backends, old vs new migration paths, v1 vs v2 API branches, or A/B experiment branches
+- Missing fields in one path compared to another is NOT a bug unless the same path is internally inconsistent with its own API contract
+- React Hook rule/lint violations (conditional hooks, hooks in expressions/ternaries/??, hooks after early returns) are NOT bugs unless the diff proves a runtime crash or a hook order change across renders
+- "Regression" claims are NOT bugs unless the diff proves an unintended break (assume intended change by default)
+- Destructuring assignments that use TypeScript type assertions (e.g., `} = foo as SomeType;`) are NOT bugs
+  The type assertion indicates the developer has explicitly declared the type and taken responsibility for its correctness
+  Do NOT report null/undefined destructuring risks when the source has an explicit type assertion
+
+Focus on:
+- Parameter mismatches (query vs body, string vs boolean) that cause runtime errors
+- Function signature changes not propagated to callers (e.g., added param missing in call sites)
+- Incomplete updates (some files updated, others not) that break functionality
+- Type coercion issues that cause incorrect behavior
+- Logic errors in conditionals that cause wrong code paths
+- Missing null/undefined checks that cause crashes
+- API contract mismatches that cause failures
+
+NOT risks (mark as not-a-risk):
+- Intentional dual code paths (old vs new) where both paths work correctly - this is a design pattern, not a bug
+- Different data structures for different paths, if each path handles its structure correctly
+- "Confusing" or "inverted" logic that nonetheless produces correct behavior
+- Endpoints that are configurable by environment or config
+- POST vs GET for edit/submit flows when POST is intended
+- CDC paths that intentionally omit fields by design
+- Mismatches between two intentional paths are expected and not a bug unless the same path is internally inconsistent
+- Speculative failures based on missing fields from external APIs unless the diff proves those fields are absent or required
+- If evidence is incomplete, add it to notBugs with reason "speculative"
+- Do NOT claim external API response shapes/contents unless explicitly shown in the diff or documented in the PR description
+- React Hook lint violations without demonstrated runtime impact (treat as not-a-risk)
+- Low severity issues, code style, or refactoring suggestions
+- Theoretical issues without concrete evidence of failure
+
+Only report bugs that are:
+1. HIGH severity (will cause runtime errors or incorrect behavior)
+2. Functional (affects program behavior, not just code quality)
+3. Confirmed (clear evidence in the code changes that this will fail)
