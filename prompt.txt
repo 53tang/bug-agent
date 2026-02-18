@@ -1,4 +1,4 @@
-{{PROMPT}}
+﻿{{PROMPT}}
 
 PR Context:
 - Title: {{PR_TITLE}}
@@ -18,6 +18,7 @@ Note: Some entries may include "full_content_excerpt" when files are large; do n
 Note: If the PR touches many files, full_content may be omitted for all files (diff-only analysis).
 
 CRITICAL: Focus ONLY on HIGH severity, functional, CONFIRMED bugs that will cause incorrect behavior.
+CRITICAL: If evidence is incomplete or requires external context, add it to notBugs with reason "speculative".
 
 OUTPUT: Provide a concise bullet list of potential bugs. For each bug:
 - File path and line hint
@@ -56,20 +57,6 @@ IMPORTANT: For EVERY bug, you MUST include a 'codeSnippet' field with 3-5 lines 
 - Example: "  analyticsData,\n+ products,\n  },\n} = appContextData as AppModel;"
 - The codeSnippet field is REQUIRED, not optional
 
-Known non-bugs (do NOT report):
-- ReferenceError for missing/undefined symbols (ignore; handled by lint)
-- Configurable endpoints (URL can be set via config/env)
-- Edit flows that use POST (not GET)
-- CDC paths that intentionally omit fields by design
-- Differences between two intentional code paths (feature flags, env switches, conditionals) are expected if each path is internally consistent
-  Examples: CDC vs Mulesoft backends, old vs new migration paths, v1 vs v2 API branches, or A/B experiment branches
-- Missing fields in one path compared to another is NOT a bug unless the same path is internally inconsistent with its own API contract
-- React Hook rule/lint violations (conditional hooks, hooks in expressions/ternaries/??, hooks after early returns) are NOT bugs unless the diff proves a runtime crash or a hook order change across renders
-- "Regression" claims are NOT bugs unless the diff proves an unintended break (assume intended change by default)
-- Destructuring assignments that use TypeScript type assertions (e.g., `} = foo as SomeType;`) are NOT bugs
-  The type assertion indicates the developer has explicitly declared the type and taken responsibility for its correctness
-  Do NOT report null/undefined destructuring risks when the source has an explicit type assertion
-
 Focus on:
 - Parameter mismatches (query vs body, string vs boolean) that cause runtime errors
 - Function signature changes not propagated to callers (e.g., added param missing in call sites)
@@ -77,9 +64,8 @@ Focus on:
 - Type coercion issues that cause incorrect behavior
 - Logic errors in conditionals that cause wrong code paths
 - Missing null/undefined checks that cause crashes
-- API contract mismatches that cause failures
 
-NOT risks (mark as not-a-risk):
+Not a bug / not-a-risk (mark as not-a-risk):
 - Intentional dual code paths (old vs new) where both paths work correctly - this is a design pattern, not a bug
 - Different data structures for different paths, if each path handles its structure correctly
 - "Confusing" or "inverted" logic that nonetheless produces correct behavior
@@ -93,6 +79,14 @@ NOT risks (mark as not-a-risk):
 - React Hook lint violations without demonstrated runtime impact (treat as not-a-risk)
 - Low severity issues, code style, or refactoring suggestions
 - Theoretical issues without concrete evidence of failure
+- ReferenceError for missing/undefined symbols (ignore; handled by lint)
+- Differences between two intentional code paths (feature flags, env switches, conditionals) are expected if each path is internally consistent
+  Examples: CDC vs Mulesoft backends, old vs new migration paths, v1 vs v2 API branches, or A/B experiment branches
+- Missing fields in one path compared to another is NOT a bug unless the same path is internally inconsistent with its own API contract
+- "Regression" claims are NOT bugs unless the diff proves an unintended break (assume intended change by default)
+- Destructuring assignments that use TypeScript type assertions (e.g., `} = foo as SomeType;`) are NOT bugs
+  The type assertion indicates the developer has explicitly declared the type and taken responsibility for its correctness
+  Do NOT report null/undefined destructuring risks when the source has an explicit type assertion
 
 Only report bugs that are:
 1. HIGH severity (will cause runtime errors or incorrect behavior)
