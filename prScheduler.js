@@ -14,6 +14,7 @@ const DEFAULT_AUTHOR_UUIDS = [
   '{32c4ef6f-3c67-431b-8fa6-0a4b1c4a77a9}',
   '{8ad2417d-9d07-4e7d-830b-b88fef044fb7}',
 ];
+const IGNORED_REPOS = new Set(['smart_eco-platform/api-integration-aws']);
 const PR_ANALYSIS_QUEUE_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const MAX_DAILY_ANALYSIS_COUNT = 20;
 const RETRY_DELAY_MS = 60 * 1000; // 1 minute
@@ -217,6 +218,10 @@ function resolveAuthorUuids(rawAuthorUuids) {
     }
   }
   return DEFAULT_AUTHOR_UUIDS;
+}
+
+function isIgnoredRepo(repoFullName) {
+  return IGNORED_REPOS.has(String(repoFullName || '').trim());
 }
 
 async function fetchAllPages(url, authHeader, fetchJson) {
@@ -505,17 +510,29 @@ function createPrFetchScheduler({
           latestTimestamp,
         });
       
+      const ignoredPrs = prs.filter((pr) =>
+        isIgnoredRepo(pr.source?.repository?.full_name)
+      );
+      const filteredPrs = prs.filter(
+        (pr) => !isIgnoredRepo(pr.source?.repository?.full_name)
+      );
+      
       const timestampInfo = latestTimestamp 
         ? ` (new PRs since ${latestTimestamp})`
         : '';
       
       logger.log(
-        `[schedule] Fetched ${prs.length} PR(s) created today (UTC ${startIso} - ${endIso})${timestampInfo} from workspace ${resolvedWorkspace}`
+        `[schedule] Fetched ${filteredPrs.length} PR(s) created today (UTC ${startIso} - ${endIso})${timestampInfo} from workspace ${resolvedWorkspace}`
       );
+      if (ignoredPrs.length > 0) {
+        logger.log(
+          `[schedule] Skipped ${ignoredPrs.length} PR(s) from ignored repos`
+        );
+      }
       
       // Add new PRs to analysis queue
-      if (prs.length > 0) {
-        for (const pr of prs) {
+      if (filteredPrs.length > 0) {
+        for (const pr of filteredPrs) {
           analysisQueue.add(pr);
         }
         const status = analysisQueue.getStatus();

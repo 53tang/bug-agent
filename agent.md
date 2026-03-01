@@ -13,7 +13,7 @@ Express service that analyzes Bitbucket PR diffs and posts a summary comment. It
 - BITBUCKET_WORKSPACE (optional, default smart_eco-platform)
 - PR_FETCH_INTERVAL_MS (optional, default 600000)
 - PR_AUTHOR_UUIDS (optional, comma-separated UUIDs)
-- GEMINI_KEY
+- MOON_SHOT_KEY
 
 ## Run
 pnpm start

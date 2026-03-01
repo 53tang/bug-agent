@@ -15,7 +15,9 @@ Changed Files Analysis:
 
 Note: Some entries may include only "diff" (no full_content). Do not assume missing context.
 Note: Some entries may include "full_content_excerpt" when files are large; do not treat missing full_content as a bug.
+Note: When "full_content" or "full_content_excerpt" is present, check carefully and cross-verify the diff against the full content before concluding a bug.
 Note: If the PR touches many files, full_content may be omitted for all files (diff-only analysis).
+Note: If a diff file path includes "utils/", assume it may wrap API calls; scrutinize parameter propagation and endpoint usage carefully.
 
 CRITICAL: Focus ONLY on HIGH severity, functional, CONFIRMED bugs that will cause incorrect behavior.
 CRITICAL: If evidence is incomplete or requires external context, add it to notBugs with reason "speculative".
@@ -23,7 +25,8 @@ CRITICAL: If evidence is incomplete or requires external context, add it to notB
 OUTPUT: Provide a concise bullet list of potential bugs. For each bug:
 - File path and line hint
 - What the bug is (short, simple wording)
-- Why it's risky (must be HIGH severity - will cause runtime errors or incorrect behavior)
+- Why it's risky (must be HIGH severity - will cause incorrect behavior)
+Additionally, provide architecture/management/quantity suggestions that are NOT bugs.
 
 OUTPUT FORMAT: Return STRICT JSON only (no markdown, no code fences).
 Schema:
@@ -39,6 +42,13 @@ Schema:
       "codeSnippet": "3-5 lines from diff showing the bug"
     }
   ],
+  "suggestions": [
+    {
+      "topic": "Architecture / Management / Quantity",
+      "suggestion": "actionable recommendation",
+      "rationale": "short reasoning"
+    }
+  ],
   "notBugs": [
     {
       "topic": "short label",
@@ -47,6 +57,7 @@ Schema:
   ]
 }
 Limit bugs to at most 3 items.
+If there are no suggestions, return an empty suggestions array.
 
 IMPORTANT: For EVERY bug, you MUST include a 'codeSnippet' field with 3-5 lines from the diff:
 - Extract the exact lines from the provided diff that show the problematic code
@@ -58,22 +69,18 @@ IMPORTANT: For EVERY bug, you MUST include a 'codeSnippet' field with 3-5 lines 
 - The codeSnippet field is REQUIRED, not optional
 
 Focus on:
-- Parameter mismatches (query vs body, string vs boolean) that cause runtime errors
 - Function signature changes not propagated to callers (e.g., added param missing in call sites)
+- When query parameters are added to a fetch utility, verify the related POST utility also propagates them (e.g., fetchConsents vs postConsents); missing propagation is a bug.
 - Incomplete updates (some files updated, others not) that break functionality
 - Type coercion issues that cause incorrect behavior
 - Logic errors in conditionals that cause wrong code paths
-- Missing null/undefined checks that cause crashes
 
 Not a bug / not-a-risk (mark as not-a-risk):
-- Intentional dual code paths (old vs new) where both paths work correctly - this is a design pattern, not a bug
 - Different data structures for different paths, if each path handles its structure correctly
 - "Confusing" or "inverted" logic that nonetheless produces correct behavior
 - Endpoints that are configurable by environment or config
-- POST vs GET for edit/submit flows when POST is intended
 - CDC paths that intentionally omit fields by design
-- Mismatches between two intentional paths are expected and not a bug unless the same path is internally inconsistent
-- Speculative failures based on missing fields from external APIs unless the diff proves those fields are absent or required
+- Do NOT flag missing VOC consent fields (consentVoc*) when comparing CDC vs Mulesoft paths unless the same path is internally inconsistent with its own contract or the diff explicitly removes required VOC handling
 - If evidence is incomplete, add it to notBugs with reason "speculative"
 - Do NOT claim external API response shapes/contents unless explicitly shown in the diff or documented in the PR description
 - React Hook lint violations without demonstrated runtime impact (treat as not-a-risk)
@@ -87,8 +94,9 @@ Not a bug / not-a-risk (mark as not-a-risk):
 - Destructuring assignments that use TypeScript type assertions (e.g., `} = foo as SomeType;`) are NOT bugs
   The type assertion indicates the developer has explicitly declared the type and taken responsibility for its correctness
   Do NOT report null/undefined destructuring risks when the source has an explicit type assertion
+- Axios request config or extra argument changes are intended unless the diff shows misuse (wrong endpoint, wrong headers, or breaking signature)
 
 Only report bugs that are:
-1. HIGH severity (will cause runtime errors or incorrect behavior)
+1. HIGH severity (will cause incorrect behavior)
 2. Functional (affects program behavior, not just code quality)
 3. Confirmed (clear evidence in the code changes that this will fail)

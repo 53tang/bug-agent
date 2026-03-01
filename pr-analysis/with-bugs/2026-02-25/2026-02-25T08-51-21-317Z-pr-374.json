@@ -1,0 +1,82 @@
+{
+  "prId": 374,
+  "repoFullName": "smart_eco-platform/product-catalogue-feature-app",
+  "prTitle": "fix: update bff",
+  "timestamp": "2026-02-25T08:51:21.317Z",
+  "filterStats": {
+    "total": 4,
+    "included": 4,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "stacks/BffApi.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 4074,
+      "full_content": "import type {ApiProps, StackContext} from 'sst/constructs';\nimport {Api, use} from 'sst/constructs';\nimport {AppConfig} from './AppConfig';\n\ntype Routes = Record<\n  string,\n  {\n    function: {\n      handler: string;\n      timeout?: number;\n      memorySize?: number;\n      functionName?: string;\n    };\n  }\n>;\nconst getBffName = (path: string) => path.split(`/`).pop();\nconst getBffMethod = (path: string) => path.split(` `)[0];\nconst enrichRoutes = (\n  routes: Routes,\n  target: string,\n  stage: string,\n): ApiProps['routes'] => {\n  if (routes) {\n    return Object.entries(routes).reduce<ApiProps['routes']>(\n      (\n        acc,\n        [\n          path,\n          {\n            [`function`]: {handler, timeout, memorySize},\n          },\n        ],\n      ) => {\n        if (acc)\n          acc[path] = {\n            function: {\n              handler,\n              ...(timeout && {timeout}),\n              ...(memorySize && {memorySize}),\n              functionName: `BFF-${target.toUpperCase()}-${getBffMethod(\n                path,\n              )}-${getBffName(path)}-${stage}`,\n              description: `${getBffName(path)} ${target} => ${\n                path.split(` `)[1]\n              }`,\n            },\n          };\n        return acc;\n      },\n      {},\n    );\n  }\n  return routes;\n};\n\nexport function BffApi({stack}: StackContext) {\n  const {hostedZone, target, featureAppName} = use(AppConfig);\n  const baseUrl = `/__app__/${featureAppName}/${target}`;\n  const privateBaseUrl = `/__app-private__/${featureAppName}/${target}`;\n  const routes: Routes = {\n    [`GET ${baseUrl}/bff/app-model`]: {\n      function: {\n        handler: `src/bff/app-model/index.handler`,\n        memorySize: 1769,\n        timeout: 60,\n        functionName: `${featureAppName}-${target}-app-model`,\n      },\n    },\n    [`GET ${privateBaseUrl}/bff/product-catalogue-model`]: {\n      function: {\n        handler: `src/bff/product-catalogue-model/index.handler`,\n        memorySize: 1769,\n        timeout: 60,\n        functionName: `${featureAppName}-${target}-product-catalogue-model`,\n      },\n    },\n\n    [`GET ${privateBaseUrl}/bff/price-details`]: {\n      function: {\n        handler: `src/bff/price-details/index.handler`,\n        memorySize: 1769,\n        functionName: `${featureAppName}-${target}-price-details`,\n      },\n    },\n\n    [`GET ${privateBaseUrl}/bff/cart-model`]: {\n      function: {\n        handler: `src/bff/cart-model/index.handler`,\n        memorySize: 1769,\n        functionName: `${featureAppName}-${target}-cart-model`,\n      },\n    },\n\n    [`POST ${privateBaseUrl}/bff/post-cart`]: {\n      function: {\n        handler: `src/bff/post-cart/index.handler`,\n        memorySize: 1769,\n        timeout: 60,\n        functionName: `${featureAppName}-${target}-post-cart`,\n      },\n    },\n\n    [`DELETE ${privateBaseUrl}/bff/delete-cart`]: {\n      function: {\n        handler: `src/bff/delete-cart/index.handler`,\n        memorySize: 1769,\n        timeout: 60,\n        functionName: `${featureAppName}-${target}-delete-cart`,\n      },\n    },\n\n    [`POST ${privateBaseUrl}/bff/post-entry`]: {\n      function: {\n        handler: `src/bff/post-entry/index.handler`,\n        memorySize: 1769,\n        functionName: `${featureAppName}-${target}-post-entry`,\n      },\n    },\n\n    [`POST ${privateBaseUrl}/bff/replace-entry`]: {\n      function: {\n        handler: `src/bff/replace-entry/index.handler`,\n        functionName: `${featureAppName}-${target}-replace-entry`,\n      },\n    },\n\n    [`DELETE ${privateBaseUrl}/bff/delete-entry`]: {\n      function: {\n        handler: `src/bff/delete-entry/index.handler`,\n        functionName: `${featureAppName}-${target}-delete-entry`,\n      },\n    },\n  };\n\n  const api = new Api(stack, `api`, {\n    customDomain: {\n      hostedZone,\n      domainName: [`stage`, `dev`, `prod`].includes(stack.stage)\n        ? `bff.${hostedZone}`\n        : `bff.${stack.stage}.${hostedZone}`,\n    },\n    routes: enrichRoutes(routes, target, stack.stage),\n  });\n\n  stack.addOut",
+      "full_content_truncated": true
+    },
+    {
+      "file": "stacks/Site.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 4319,
+      "full_content": "import * as aws from 'aws-cdk-lib';\nimport * as cloudfront from 'aws-cdk-lib/aws-cloudfront';\nimport * as origins from 'aws-cdk-lib/aws-cloudfront-origins';\nimport * as lambda from 'aws-cdk-lib/aws-lambda';\nimport type {StackContext} from 'sst/constructs';\nimport {Bucket, StaticSite, use} from 'sst/constructs';\nimport {AppConfig} from './AppConfig';\nimport {BffApi} from './BffApi';\n\nexport function Site({stack, app}: StackContext) {\n  const {hostedZone, target} = use(AppConfig);\n  const baseUrl = `/__app__/${app.name}/${target}`;\n  const privateBaseUrl = `/__app-private__/${app.name}/${target}`;\n  const api = use(BffApi);\n\n  const originRewrite = new cloudfront.experimental.EdgeFunction(\n    stack,\n    `OriginRewriteEdge`,\n    {\n      code: lambda.Code.fromInline(`\n      exports.handler = async (event) => {\n        console.debug(\"event\", JSON.stringify(event));\n      \n        const request = event.Records[0].cf.request;\n        const [, , appName, appVersion] = request.uri.split(\"/\");\n      \n        const domainName = appVersion + \".\" + appName + \".feature-app.srv.smart.com\";\n      \n        request.origin.custom.domainName = domainName;\n        request.headers[\"host\"] = [{ key: \"Host\", value: domainName }];\n      \n        console.debug(\"request\", JSON.stringify(request));\n      \n        return request;\n      };\n      `),\n      runtime: lambda.Runtime.NODEJS_LATEST,\n      handler: `index.handler`,\n      stackId: app.logicalPrefixedName(`origin-rewrite`),\n    },\n  );\n\n  const bucket = new Bucket(stack, `frontend-bucket`, {\n    blockPublicACLs: true,\n    cdk: {\n      bucket: {\n        autoDeleteObjects: true,\n        removalPolicy: aws.RemovalPolicy.DESTROY,\n      },\n    },\n  });\n  const S3Origin = new origins.S3Origin(bucket.cdk.bucket);\n  const site = new StaticSite(stack, `frontend`, {\n    buildOutput: `build`,\n    buildCommand: `npx pnpm run build`,\n    environment: {\n      BASE_URL: baseUrl,\n    },\n    dev: {\n      url: `http://localhost:${process.env.PORT ?? 3000}`,\n    },\n    customDomain: {\n      hostedZone,\n      domainName: hostedZone,\n    },\n    assets: {\n      fileOptions: [\n        {\n          files: [`**/feature-app.js`],\n          cacheControl: `max-age=${365 * 24 * 60 * 60}, immutable, public`,\n        },\n      ],\n    },\n    cdk: {\n      bucket: bucket.cdk.bucket,\n      distribution: {\n        defaultBehavior: {\n          origin: S3Origin,\n        },\n        additionalBehaviors: {\n          [`${baseUrl}/bff/*`]: {\n            origin: new origins.HttpOrigin(aws.Fn.parseDomainName(api.url)),\n            allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,\n            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,\n            viewerProtocolPolicy:\n              cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,\n            originRequestPolicy:\n              cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,\n          },\n          [`${privateBaseUrl}/bff/*`]: {\n            origin: new origins.HttpOrigin(aws.Fn.parseDomainName(api.url)),\n            allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,\n            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,\n            viewerProtocolPolicy:\n              cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,\n            originRequestPolicy:\n              cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,\n          },\n          [`/__app__/${app.name}/*`]: {\n            origin: S3Origin,\n            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,\n            viewerProtocolPolicy:\n              cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,\n            originRequestPolicy:\n              cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,\n          },\n          [`/__app__/*`]: {\n            origin: new origins.HttpOrigin(`smart.com`),\n            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,\n            originRequestPolicy:\n              cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,\n            e",
+      "full_content_truncated": true
+    },
+    {
+      "file": "webpack/webpack.config.feature-app.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "webpack/webpack.config.web-app.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false,
+      "full_content_length": 3874,
+      "full_content": "import path from 'path';\nimport {BuildTimestampPlugin} from '@smart/server-utils';\nimport CopyWebpackPlugin from 'copy-webpack-plugin';\nimport HtmlInlineCssWebpackPlugin from 'html-inline-css-webpack-plugin';\nimport HtmlWebpackPlugin from 'html-webpack-plugin';\nimport MiniCssExtractPlugin from 'mini-css-extract-plugin';\nimport type {Configuration} from 'webpack';\nimport webpack from 'webpack';\nimport type {Configuration as WebpackDevServerConfiguration} from 'webpack-dev-server';\nimport merge from 'webpack-merge';\nimport {buildPath, getCommonConfig} from './webpack.config.common';\n\ninterface WebAppOptions {\n  readonly mode: Configuration['mode'];\n  readonly stage: string;\n  readonly target: string;\n  readonly baseUrl: string;\n  readonly privateBaseUrl: string;\n  readonly featureAppName: string;\n  readonly hostedZone: string;\n}\n\nexport const getWebAppConfig = (\n  options: WebAppOptions,\n): Configuration & WebpackDevServerConfiguration => {\n  const config: Configuration & WebpackDevServerConfiguration = {\n    mode: options.mode,\n    entry: [buildPath(`src`, `feature-app`, `index.tsx`)],\n    output: {\n      filename: `index.js`,\n      path: buildPath(`build`, `assets`),\n      publicPath: `auto`,\n    },\n    devServer: {\n      port: process.env.PORT ?? 3000,\n      proxy: [\n        {\n          path: () => false,\n          context: (pathname) => {\n            if (\n              pathname.startsWith(`/__app__/`) ||\n              pathname.startsWith(`/__app-private__/`)\n            ) {\n              const [_, _appPath, featureAppName] = pathname.split(`/`);\n              return featureAppName !== options.featureAppName;\n            }\n            return false;\n          },\n          target: `https://${options.stage}.${options.hostedZone}`,\n          changeOrigin: true,\n          router: ({path: p}) => {\n            const [_, _appPath, featureAppName, env] = p.split(`/`);\n            return `https://${env}.${featureAppName}.feature-app.srv.smart.com`;\n          },\n          logLevel: `debug`,\n          secure: false,\n        },\n        {\n          context: (pathname) =>\n            pathname.startsWith(`${options.baseUrl}/bff`) ||\n            pathname.startsWith(`${options.privateBaseUrl}/bff`),\n\n          target: `https://bff.${options.stage}.${options.hostedZone}`,\n          changeOrigin: true,\n          logLevel: `debug`,\n          secure: false,\n        },\n      ],\n      onListening: () => {\n        console.log(`Listening on port: ${process.env.PORT ?? 3000}`);\n      },\n    },\n\n    plugins: [\n      new HtmlWebpackPlugin({\n        template: buildPath(`src`, `feature-app`, `index.html`),\n        filename:\n          options.mode === `development` ? `index.html` : `../index.html`,\n        cache: false,\n        templateParameters: {baseUrl: options.baseUrl},\n      }),\n      new webpack.SourceMapDevToolPlugin({\n        filename: `[file].map`,\n        publicPath: `${options.baseUrl}/assets/`,\n        namespace: `${options.featureAppName}/${options.target}`,\n      }),\n      new MiniCssExtractPlugin({filename: `index.css`}),\n      new HtmlInlineCssWebpackPlugin(),\n      new CopyWebpackPlugin({\n        patterns: [\n          `static`,\n          path.join(\n            path.dirname(require.resolve(`@smart/web-components/package.json`)),\n            `dist/assets`,\n          ),\n        ],\n      }),\n      new webpack.container.ModuleFederationPlugin({\n        shared: {\n          'react': {singleton: true, eager: true},\n          'react-dom': {\n            singleton: true,\n            eager: true,\n            requiredVersion: false,\n          },\n          '@feature-hub/react': {singleton: true, eager: true},\n        },\n      }),\n      new BuildTimestampPlugin({target: options.target}),\n    ],\n    resolve: {\n      fallback: {\n        child_process: false,\n      },\n    },\n  };\n\n  return merge(getCommonConfig(options), config);\n};\n"
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "kimi-k2.5",
+      "elapsedMs": 235175,
+      "promptTokens": 7686,
+      "responseTokens": 7392,
+      "totalTokens": 15078,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": null,
+      "source": "usage"
+    }
+  ],
+  "analysis": {
+    "summary": "The enrichRoutes function in BffApi.ts ignores the functionName property explicitly set in route definitions, causing Lambda functions to be deployed with auto-generated names instead of the intended names. This breaks the explicit naming convention intended by the developer.",
+    "bugs": [
+      {
+        "title": "enrichRoutes ignores explicit functionName causing wrong Lambda names",
+        "filePath": "stacks/BffApi.ts",
+        "lineHint": "Line 30, 40-42",
+        "description": "The enrichRoutes function destructures only handler, timeout, and memorySize from the route function config, ignoring the functionName property that is now explicitly provided in all route definitions. It then generates a different functionName using a template string, effectively discarding the intended names like 'product-catalogue-qa-app-model' and replacing them with generated names like 'BFF-QA-GET-app-model-stage'.",
+        "risk": "Lambda functions will be deployed with unexpected names that don't match the explicit naming convention defined in the routes object. This can break monitoring, logging, IAM policies, or cross-stack references that depend on the specific functionName pattern defined in the code.",
+        "codeSnippet": "      [\n        path,\n        {\n          [`function`]: {handler, timeout, memorySize},\n        },\n      ],\n    ) => {\n      if (acc)\n        acc[path] = {\n          function: {\n            handler,\n            ...(timeout && {timeout}),\n            ...(memorySize && {memorySize}),\n            functionName: `BFF-${target.toUpperCase()}-${getBffMethod(\n              path,\n            )}-${getBffName(path)}-${stage}`,"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Path rewrite removal in Site.ts",
+        "reason": "The CloudFront Function removal is intentional and coordinated with the BffApi route changes. The BFF routes now include the full path prefix (baseUrl), so URL rewriting is no longer needed. The webpack output paths have also been updated to match the new S3 key structure."
+      },
+      {
+        "topic": "Missing timeout in some routes",
+        "reason": "The timeout configuration is preserved from the original code. Routes that previously lacked timeout (like price-details, cart-model) continue to use the Lambda default (3s). This is not a new bug introduced by the PR."
+      },
+      {
+        "topic": "Site.ts using app.name vs featureAppName",
+        "reason": "Site.ts uses app.name while BffApi.ts uses featureAppName from AppConfig. This could cause a mismatch if they differ, but without evidence that app.name and featureAppName are different values or that this causes runtime errors, this remains speculative."
+      }
+    ]
+  }
+}

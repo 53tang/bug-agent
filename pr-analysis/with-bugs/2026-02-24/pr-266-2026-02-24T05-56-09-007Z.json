@@ -1,0 +1,74 @@
+{
+  "prId": 266,
+  "repoFullName": "smart_eco-platform/api-integration-aws",
+  "prTitle": "Feature/api types",
+  "timestamp": "2026-02-24T05:56:09.007Z",
+  "filterStats": {
+    "total": 1,
+    "included": 1,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": ".buildkite/pipeline.yaml",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 7561,
+      "full_content": "env:\n  NO_COLOR: 1\n\ndefinitions:\n  plugins:\n    - &docker-node\n      https://bitbucket.org/smart_eco-platform/docker-buildkite-plugin#v1:\n        image: 'node:20'\n        shell: ['/bin/bash', '-e', '-u', '-c']\n    - &cache-node_modules\n      cache#v1.3.0:\n        manifest: pnpm-lock.yaml\n        path: node_modules\n        restore: pipeline\n        save: file\n    - &common_plugins [*docker-node, *cache-node_modules]\n\n  steps:\n    - &deploy\n      plugins: *common_plugins\n      commands:\n        - |\n          if [[ \"$$TARGET\" != \"stage\" && \"$$TARGET\" != \"prod\" ]]; then\n            echo \"ℹ️  Skipping permission check for $$TARGET\"\n          else\n            if [[ ! \":$$BUILDKITE_UNBLOCKER_TEAMS:\" =~ \":website-release:\" ]]; then\n              echo \"❌ ACCESS DENIED: you don't have permission to deploy to $$TARGET\"\n              exit 1\n            fi\n          fi\n          echo \"🚀 Proceeding to deployment...\"\n        - npx pnpm install --frozen-lockfile\n        - npx pnpm run deploy --stage $$TARGET\n\n    - &deploy_firewall_optional\n      plugins: *common_plugins\n      commands:\n        - |\n          VAL=\"$$(buildkite-agent meta-data get \"$$FIREWALL_PROMPT_KEY\" || echo \"false\")\"\n          if [[ -z \"$$VAL\" ]]; then VAL=\"false\"; fi\n          echo \"$$FIREWALL_PROMPT_KEY=$$VAL\"\n\n          if [[ \"$$VAL\" != \"true\" ]]; then\n            echo \"🚫 Skipping firewall deployment\"\n            exit 0\n          fi\n          npx pnpm install --frozen-lockfile\n          npx sst deploy --stage $$TARGET --region us-east-1\n\n    - &release_optional\n      plugins: *common_plugins\n      commands:\n        - |\n          VAL=\"$(buildkite-agent meta-data get \"$$RELEASE_PROMPT_KEY\" || echo \"false\")\"\n          if [[ -z \"$$VAL\" ]]; then VAL=\"false\"; fi\n          echo \"$$RELEASE_PROMPT_KEY=$VAL\"\n          if [[ \"$VAL\" != \"true\" ]]; then\n            echo \"ℹ️  Skipping release\"\n            exit 0\n          fi\n\n          git remote update &&\n          git fetch &&\n          git fetch --tags &&\n          git checkout \"$BUILDKITE_BRANCH\" &&\n          git reset --hard \"$BUILDKITE_COMMIT\" &&\n          npx pnpm install --frozen-lockfile &&\n          npx pnpm run docs:build\n\n          if [[ \"$$RELEASE_KIND\" == \"pre\" ]]; then\n            BRANCH=$(echo \"$BUILDKITE_BRANCH\" | tr '/' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9-]//g')\n            COMMIT_ID=$(echo \"$BUILDKITE_COMMIT\" | cut -c1-4)\n            npx release-it --preRelease \"$BRANCH-$COMMIT_ID\" --ci\n          else\n            npx release-it --ci\n          fi\n          git push origin \"HEAD:$BUILDKITE_BRANCH\" --tags\n          npm publish --tag \"$$NPM_TAG\"\n\nsteps:\n  - label: ':npm: dependencies'\n    key: 'deps'\n    plugins: *common_plugins\n    commands:\n      - npx pnpm install --frozen-lockfile\n\n  - label: ':npm: CI Checks'\n    key: 'checks'\n    depends_on: 'deps'\n    plugins: *common_plugins\n    commands:\n      - npx pnpm install --frozen-lockfile\n      - npx pnpm run generate-sst-types --stage dev\n      - npx pnpm run typecheck\n      - npx pnpm run lint\n\n  - wait: ~\n\n  - group: ':package: Pre-release'\n    if: build.branch =~ /^feature\\//\n    steps:\n      - block: ':rocket: Pre-release declarations'\n        key: 'pre-release-declarations'\n        depends_on: 'checks'\n        prompt: 'Do you want to run pre-release declarations?'\n        fields:\n          - select: 'Run pre-release declarations?'\n            key: 'run_pre_release_declarations'\n            default: 'false'\n            options:\n              - label: 'Yes'\n                value: 'true'\n              - label: 'No'\n                value: 'false'\n\n      - label: 'pre-release declarations'\n        depends_on: 'pre-release-declarations'\n        env:\n          RELEASE_PROMPT_KEY: run_pre_release_declarations\n          RELEASE_KIND: pre\n          NPM_TAG: rc\n        <<: *release_optional\n\n  - group: ':package: Deploy Dev'\n    if: build.branch == \"develop\"\n    steps:\n      - block: ':rocket: Publish release version'\n        label: 'Publish release versi",
+      "full_content_truncated": true
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "kimi-k2.5",
+      "elapsedMs": 93034,
+      "promptTokens": 5966,
+      "responseTokens": 4483,
+      "totalTokens": 10449,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": null,
+      "source": "usage"
+    }
+  ],
+  "analysis": {
+    "summary": "Three high severity functional bugs identified: stage deployment branch matcher regression breaks release branches, firewall deployment missing authorization checks, and develop branch NPM publishing changed to latest tag.",
+    "bugs": [
+      {
+        "title": "Stage deployment branch matcher regression",
+        "filePath": ".buildkite/pipeline.yaml",
+        "lineHint": "Line 179",
+        "description": "Changed stage deployment condition from regex matching release/* branches to exact match 'release', breaking standard release branch naming like release/v1.0.0",
+        "risk": "Prevents deployment to stage environment for any release branch with version suffixes, blocking all standard release workflows",
+        "codeSnippet": "-    if: build.branch =~ /^release\\\\// || build.branch =~ /^hotfix\\\\//\n+    if: build.branch == 'release' || build.branch =~ /^hotfix\\\\//"
+      },
+      {
+        "title": "Firewall deployment missing permission checks",
+        "filePath": ".buildkite/pipeline.yaml",
+        "lineHint": "Lines 35-48",
+        "description": "The new deploy_firewall_optional anchor removed team permission checks for stage/prod deployments that existed in the old deploy_us_east_1 anchor",
+        "risk": "Allows unauthorized users without website-release team membership to deploy firewall changes to production and stage environments",
+        "codeSnippet": "    - &deploy_firewall_optional\n      plugins: *common_plugins\n      commands:\n        - |\n          VAL=\"$(buildkite-agent meta-data get \"$FIREWALL_PROMPT_KEY\" || echo \"false\")\"\n          if [[ -z \"$VAL\" ]]; then VAL=\"false\"; fi\n          echo \"$FIREWALL_PROMPT_KEY=$VAL\"\n\n          if [[ \"$VAL\" != \"true\" ]]; then\n            echo \"🚫 Skipping firewall deployment\"\n            exit 0\n          fi\n          npx pnpm install --frozen-lockfile\n          npx sst deploy --stage $TARGET --region us-east-1"
+      },
+      {
+        "title": "Develop branch publishes to NPM latest tag",
+        "filePath": ".buildkite/pipeline.yaml",
+        "lineHint": "Lines 143-147",
+        "description": "Changed NPM publish tag from 'stage' to 'latest' for develop branch releases, causing development builds to be published as the latest stable version",
+        "risk": "Users installing the package will receive unstable development builds instead of the latest stable release, breaking downstream dependencies",
+        "codeSnippet": "      - label: 'Publish release version'\n        depends_on: 'publish-release'\n        env:\n          RELEASE_PROMPT_KEY: PUBLISH_RELEASE_STAGE\n          RELEASE_KIND: release\n          NPM_TAG: latest\n        <<: *release_optional"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Typo in firewall key name",
+        "reason": "While 'deplop-firewall-dev' is misspelled, it is used consistently in both the block step definition and the FIREWALL_PROMPT_KEY reference, so it functions correctly"
+      },
+      {
+        "topic": "Pre-release branch restriction",
+        "reason": "Changing from build.branch != 'main' to build.branch =~ /^feature\\\\// appears to be an intentional restriction of pre-releases to feature branches only"
+      }
+    ]
+  }
+}

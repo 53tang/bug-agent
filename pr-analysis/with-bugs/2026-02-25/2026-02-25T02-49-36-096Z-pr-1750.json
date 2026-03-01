@@ -1,0 +1,105 @@
+{
+  "prId": 1750,
+  "repoFullName": "smart_eco-platform/shopping-cart-feature-app",
+  "prTitle": "Fix/IBR-14731 title align",
+  "timestamp": "2026-02-25T02:49:36.097Z",
+  "filterStats": {
+    "total": 9,
+    "included": 9,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "src/feature-app-legacy/components/order-overview/personal-details.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 9504,
+      "full_content": "import {usePriceType, useSalesChannel} from '@smart/feature-app';\nimport {getLanguage} from '@smart/locale-service';\nimport {PAYMENT_MODE, SalesChannel} from '@smart/types';\nimport {isGlobalFeatureFlagsEnabled} from '@smart/utils';\nimport {Heading, Text, TextButton} from '@smart/web-components';\nimport React from 'react';\nimport {FEATURE_FLAGS} from '../../../../types/common.types';\nimport type {AppModel} from '../../../bff/app-model/create-content-model';\nimport type {AddressDetailsModel} from '../../../bff/user-model/create-address-model';\nimport {useTranslations} from '../../../feature-app/hooks';\nimport {ROUTE} from '../../constants/common';\nimport {useUserModelContext} from '../../hooks';\nimport {useAemModelContext} from '../../hooks/use-aem-model';\nimport {useAppModelContext} from '../../hooks/use-app-model';\nimport {useFeatureAppEnv} from '../../hooks/use-feature-app-env';\nimport {useLocale} from '../../hooks/use-locale';\nimport {MarketLocale, formatLocaleDate} from '../../utils/common.utils';\nimport styles from './index.module.scss';\ninterface PersonalDetailsProps {\n  paymentAddress?: AddressDetailsModel;\n  shippingAddress?: AddressDetailsModel;\n  isVehicleOnlyCart: boolean;\n}\ntype AddressType = Partial<AddressDetailsModel> & {\n  sectionName: string;\n};\n\nexport const PersonalDetails = ({\n  paymentAddress,\n  shippingAddress,\n  isVehicleOnlyCart,\n}: PersonalDetailsProps): JSX.Element => {\n  const baseClass = `personal-details`;\n  const {history} = useFeatureAppEnv().featureServices[`s2:history`];\n  const {languageTag, marketId} = useLocale();\n  const language = getLanguage(languageTag);\n  const navigateToInvoiceDetails = () => history.push(ROUTE.INVOICE_DETAILS);\n  const navigateToPersonalDetails = () => history.push(ROUTE.PERSONAL_DETAILS);\n  const {t} = useTranslations();\n  const [priceType] = usePriceType();\n  const salesChannel = useSalesChannel();\n  const {aemModel} = useAemModelContext();\n  const {appContextData} = useAppModelContext();\n  const customerType = priceType === `commercial` ? `sme` : `b2c`;\n  const {\n    aemContent: {personalDetails, orderOverview},\n  } = aemModel!;\n  const {\n    cartModel: {activePaymentMode, cartTypeMap},\n    cartModel,\n  } = appContextData as AppModel;\n  const {\n    userModel: {\n      userData: {profile},\n    },\n  } = useUserModelContext();\n  const addressList =\n    isVehicleOnlyCart || cartTypeMap.isPCPOnly\n      ? [\n          {\n            ...paymentAddress,\n            sectionName:\n              personalDetails.addressDetails.billingAddressHeadingTxt,\n          },\n        ]\n      : [\n          {\n            ...shippingAddress,\n            sectionName:\n              personalDetails.addressDetails.deliveryAddressHeadingTxt,\n          },\n          {\n            ...paymentAddress,\n            sectionName:\n              personalDetails.addressDetails.billingAddressHeadingTxt,\n          },\n        ];\n\n  const renderCompanyName = (address: AddressType) => {\n    if (activePaymentMode === PAYMENT_MODE.LOA) {\n      return `${address.firstName} ${address.lastName}`;\n    } else\n      return (\n        cartModel.addresses.paymentAddress?.companyName ||\n        profile?.sme?.companyName ||\n        ``\n      );\n  };\n\n  const isShowNIICFSEM = isGlobalFeatureFlagsEnabled(\n    FEATURE_FLAGS.SHOW_NIFCF_FOR_SME_PCP,\n    marketId,\n  );\n\n  const isShowNIICFCDC = isGlobalFeatureFlagsEnabled(\n    FEATURE_FLAGS.SHOW_NIFCF_FOR_B2C_PCP,\n    marketId,\n  );\n\n  const isShowNIFCF = (): boolean => {\n    if (!cartTypeMap.isPCPOnly) return false;\n    if (customerType === `b2c`) {\n      return isShowNIICFCDC;\n    } else {\n      return isShowNIICFSEM;\n    }\n  };\n\n  return salesChannel !== SalesChannel.SHOWROOM ? (\n    <div className={styles[`${baseClass}__billing-address`]}>\n      {addressList.map((address) => (\n        <div key={address.sectionName}>\n          <Heading\n            tag=\"h1\"\n            variant=\"headline-functional-400\"\n            className={styles[`${baseClass}__billing-address__heading`]}\n          ",
+      "full_content_truncated": true
+    },
+    {
+      "file": "src/feature-app-legacy/view/order-overview/index.module.scss",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/feature-app-legacy/view/order-overview/index.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 15963,
+      "full_content": "import {useSalesChannel} from '@smart/feature-app/react';\nimport {useTranslations} from '@smart/react-utils';\nimport {MARKET, PAYMENT_MODE, PAYMENT_TYPE, SalesChannel} from '@smart/types';\nimport {isGlobalFeatureFlagsEnabled} from '@smart/utils';\nimport {Notification} from '@smart/web-components';\nimport React, {useEffect, useState} from 'react';\nimport {FEATURE_FLAGS} from '../../../../types/common.types';\nimport type {AppModel} from '../../../bff/app-model/create-content-model';\nimport {useCurrentConditions} from '../../../feature-app/contexts/pages/get-current-conditions';\nimport {DepositContainer} from '../../components/cart-details/deposit-container/deposit-container';\nimport {ErrorMessage} from '../../components/error/error-message';\nimport {LoadingPage} from '../../components/loader';\nimport {ButtonsRow} from '../../components/order-overview/buttons-row';\nimport {Notifications} from '../../components/order-overview/notifications';\nimport {OrderDetails} from '../../components/order-overview/order-details';\nimport {PaymentSummary} from '../../components/order-overview/payment-summary';\nimport {PersonalDetailsHeading} from '../../components/order-overview/personal-details-heading';\nimport {TermsConditions} from '../../components/order-overview/terms-conditions';\nimport {OrderSummary} from '../../components/order-summary/order-summary';\nimport {\n  CART_STATUS,\n  ROUTE,\n  orderOverviewBaseClass,\n} from '../../constants/common';\nimport {createSpecificPpoImageUrl} from '../../constants/dam-files-path';\nimport {\n  LeasingOrderConflictError,\n  StockReservePeriodExpiredError,\n} from '../../errors';\nimport {\n  EventType,\n  type IDeliveryMethod,\n  type IEventDataConfirmation,\n  useAppModelContext,\n  useFeatureAppEnv,\n  useLocale,\n  useTracking,\n  useUserModelContext,\n} from '../../hooks';\nimport {useAemModelContext} from '../../hooks/use-aem-model';\nimport {useCartStatus} from '../../hooks/use-cart-status';\nimport {useCheckoutContext} from '../../hooks/use-checkout-context';\nimport {useIDealPaymentPayload} from '../../hooks/use-ideal-payment-payload';\nimport {useRedirectOnMissingBankIDVerification} from '../../hooks/use-redirect-on-missing-bankid-verification';\nimport {useTrackingDelivery} from '../../hooks/use-tracking-delivery';\nimport {cleanAnalyticsData, postOrderOverviewModel} from '../../utils';\nimport {MOCKED_VALUES} from '../../utils/mocked-values-local-storage';\nimport {processIDealPayment} from '../../utils/process-ideal-payment';\nimport {crossBorderValidation} from '../personal-details/index.utils';\nimport styles from './index.module.scss';\nimport {PAYMENT_MODE_CODES} from './index.types';\nimport {createLeasingPayload} from './index.utils';\nimport {useOrderError} from './useOrderError';\n\nexport type OrderOverviewOptions = {\n  setApiErrorInStepper: (apiError: boolean) => void;\n};\n\nconst PAYMENT_FLOWS = {\n  DEFAULT: `DEFAULT`,\n  IDEAL: `IDEAL`,\n  SUBSIDIES: `SUBSIDIES`,\n} as const;\n\ntype PaymentFlowHandler = Partial<\n  Record<keyof typeof PAYMENT_FLOWS, () => Promise<void> | void>\n>;\n\n// eslint-disable-next-line complexity\nexport const OrderOverview = ({\n  setApiErrorInStepper,\n}: OrderOverviewOptions): JSX.Element => {\n  const iDealPayload = useIDealPaymentPayload();\n  const currentConditions = useCurrentConditions();\n\n  const {setShowStepper} = useCheckoutContext();\n\n  const [loading, setLoading] = useState<boolean>(false);\n\n  const orderError = useOrderError();\n  const [showPCPErrorNotific, setShowPCPErrorNotific] = useState<boolean>(true);\n  const {marketId, languageTag} = useLocale();\n  const [failedPayment, setFailedPayment] = useState<Boolean>(false);\n  const [isPaymentModeStatusUpdating, setPaymentModeStatusUpdating] =\n    useState<boolean>(false);\n\n  const {postCartStatus} = useCartStatus();\n  const {\n    baseUrl,\n    featureServices: {\n      's2:history': {history},\n      'endpoint-directory': endpointDirectory,\n    },\n  } = useFeatureAppEnv();\n  const {\n    userModel: {userData},\n  } = useUserModelContext();\n  c",
+      "full_content_truncated": true
+    },
+    {
+      "file": "src/feature-app/index.html",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/integrator/client/index.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/integrator/client/integrator.scss",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/integrator/server/index.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/integrator/server/template.server.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "src/integrator/template.html",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "kimi-k2.5",
+      "elapsedMs": 128307,
+      "promptTokens": 11904,
+      "responseTokens": 5743,
+      "totalTokens": 17647,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": null,
+      "source": "usage"
+    }
+  ],
+  "analysis": {
+    "summary": "Hardcoded test environment script URL introduced in index.html will cause production runtime errors or incorrect behavior",
+    "bugs": [
+      {
+        "title": "Hardcoded test environment script URL",
+        "filePath": "src/feature-app/index.html",
+        "lineHint": "Line 11",
+        "description": "Added hardcoded test URL 'https://testmerch.directpos.de/web-ifs/assets/1.2/integration.js' to index.html body",
+        "risk": "Will load test/staging environment scripts in production builds, causing security risks, CORS errors, or incorrect payment/integration behavior",
+        "codeSnippet": "  <body class=\"light-theme\">\n    <main id=\"root\"></main>\n+    <script src=\"https://testmerch.directpos.de/web-ifs/assets/1.2/integration.js\"></script>\n  </body>"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Integrator files deletion",
+        "reason": "speculative - While deletion of src/integrator/ entry points appears risky, without build configuration context or evidence of active usage, cannot confirm this is unintended"
+      },
+      {
+        "topic": "PersonalDetails component refactoring",
+        "reason": "Intentional code movement - PersonalDetailsHeading moved from child component to parent OrderOverview view to fix alignment; logic preserved"
+      },
+      {
+        "topic": "Showroom channel null return",
+        "reason": "Intentional behavior change - Component now returns null for SHOWROOM channel since heading is rendered by parent; maintains same UI output"
+      }
+    ]
+  }
+}

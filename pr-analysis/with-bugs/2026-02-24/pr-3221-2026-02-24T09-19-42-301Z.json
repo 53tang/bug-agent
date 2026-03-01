@@ -1,0 +1,211 @@
+{
+  "prId": 3221,
+  "repoFullName": "smart_eco-platform/web-eco-platform",
+  "prTitle": "Feature/ADB-1114 develop",
+  "timestamp": "2026-02-24T09:19:42.301Z",
+  "filterStats": {
+    "total": 32,
+    "included": 30,
+    "excluded": 2
+  },
+  "changeList": [
+    {
+      "file": ".buildkite/pipeline.yaml",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": ".npmrc",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "app/public/locales/en-GB/translation.json",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/public/locales/en-US/translation.json",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/components/calendar/CreateAppointmentDialog/CreateAppointmentDialog.tsx",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "app/src/components/molecules/CarCard/config.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/components/molecules/CarCard/index.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/components/molecules/CarListItem/CarListItem.config.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "app/src/components/molecules/CarListItem/Header/Header.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/graphql/queries/tasks.generated.tsx",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "app/src/graphql/queries/tasks.graphql",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "app/src/pages/customer/purchased-products/SimStatus/index.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/pages/outlet/outlet-cars/index.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/pages/outlet/showroom-vehicles/index.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/pages/tasks/search/search.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/pages/tasks/tasks/Table/TaskTable.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/pages/tasks/tasks/Table/tasktable.config.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/pages/tasks/tasks/index.tsx",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/pages/tasks/tasks/task-context.tsx",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "app/src/pages/tasks/tasks/tasks.scss",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "app/src/utils/helpers/environment.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "middleware/package.json",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "middleware/src/graphql/mappers/orderMapper.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "middleware/src/graphql/schema/typeDefs/task.graphql",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "middleware/src/graphql/server.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "middleware/src/graphql/services/customerService.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "middleware/src/graphql/services/taskService.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true
+    },
+    {
+      "file": "middleware/src/test/graphql/schema/order.test.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "shared/package/__generated__/types.d.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "shared/src/__generated__/types.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    }
+  ],
+  "excludedFiles": [
+    "app/src/pages/tasks/search/__snapshots__/search.test.tsx.snap",
+    "pnpm-lock.yaml"
+  ],
+  "tokenUsage": [
+    {
+      "model": "kimi-k2.5",
+      "elapsedMs": 296489,
+      "promptTokens": 12004,
+      "responseTokens": 7818,
+      "totalTokens": 19822,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": null,
+      "source": "usage"
+    }
+  ],
+  "analysis": {
+    "summary": "Missing optional chaining in useMemo dependencies causes runtime TypeError when allAgentTasks is undefined",
+    "bugs": [
+      {
+        "title": "Missing optional chaining on allAgentTasks in task-context.tsx",
+        "filePath": "app/src/pages/tasks/tasks/task-context.tsx",
+        "lineHint": "Line 278 and dependency array",
+        "description": "In the useMemo hook, the code accesses `outletTasks?.allAgentTasks.totalCount` without optional chaining on `allAgentTasks`. If `outletTasks` exists but `allAgentTasks` is null or undefined (e.g., during loading or error states), this throws a TypeError at runtime. This occurs both in the value calculation and in the dependency array comparison.",
+        "risk": "HIGH - Runtime TypeError will crash the Tasks page when the query returns data without allAgentTasks (loading states, errors, or partial responses), causing a white screen for users.",
+        "codeSnippet": "      totalCount: outletTasks?.allAgentTasks.totalCount ?? 0,\n      totalPage: outletTasks?.allAgentTasks.totalCount\n        ? Math.ceil(\n            Number(outletTasks?.allAgentTasks.totalCount) / Number(pageSize)\n          )\n        : 1,\n\n// In dependency array:\n    outletTasks?.allAgentTasks.totalCount,"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Pagination param propagation in TaskSearch",
+        "reason": "The removal of the `rows` prop and switch to `totalCount` from context appears intentional. Parents were likely updated (not shown in diff) and this is a design change, not a functional bug."
+      },
+      {
+        "topic": "Server-side pagination implementation",
+        "reason": "Changes to remove client-side `withPaging` and add pageSize/pageNumber to API calls are intentional migration to server-side pagination. Assumes backend support per GraphQL schema updates in the same PR."
+      },
+      {
+        "topic": "SimStatus environment expansion",
+        "reason": "Adding `isStage()` to the conditions is an intentional feature to enable SIM status in QA environment, not a bug."
+      },
+      {
+        "topic": "CarCard type filtering logic",
+        "reason": "The conditional `type === AssetType.ShowroomVehicle` correctly handles undefined `type` by not filtering fields, which is the desired behavior for non-showroom vehicles."
+      }
+    ]
+  }
+}

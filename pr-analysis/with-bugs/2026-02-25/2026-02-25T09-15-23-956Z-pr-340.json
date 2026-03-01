@@ -1,0 +1,95 @@
+{
+  "prId": 340,
+  "repoFullName": "smart_eco-platform/product-summary-feature-app",
+  "prTitle": "Feature/update bff standardize",
+  "timestamp": "2026-02-25T09:15:23.956Z",
+  "filterStats": {
+    "total": 6,
+    "included": 6,
+    "excluded": 0
+  },
+  "changeList": [
+    {
+      "file": "src/bff/trpc.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": true,
+      "full_content_length": 1056,
+      "full_content": "import {trpcHandler, trpcRoot} from '@smart/feature-app/node';\nimport {getAppModel} from './app-model';\nimport {getCartModel} from './cart-model';\nimport {checkProductCompatibility} from './check-compatibility';\nimport {deleteCart} from './delete-cart';\nimport {deleteEntry} from './delete-entry';\nimport {getLeasingInformation} from './leasing-information';\nimport {postCart} from './post-cart';\nimport {postEntry} from './post-entry';\nimport {getPriceDetails} from './price-details';\nimport {getProductModel} from './product-model';\nimport {replaceEntry} from './replace-entry';\n\nconst appRouter = trpcRoot.router({\n  getAppModel,\n  getProductModel,\n  getLeasingInformation,\n  getPriceDetails,\n});\nconst privateRouter = trpcRoot.router({\n  getCartModel,\n  postCart,\n  postEntry,\n  deleteCart,\n  deleteEntry,\n  replaceEntry,\n  checkProductCompatibility,\n});\nexport const handler = trpcHandler(appRouter);\nexport const privateHandler = trpcHandler(privateRouter);\nexport type AppRouter = typeof appRouter;\nexport type PrivateRouter = typeof privateRouter;\n"
+    },
+    {
+      "file": "src/feature-app/utils/get-trpc-client.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false,
+      "full_content_length": 294,
+      "full_content": "import {createTRPCClient, httpBatchLink} from '@trpc/client';\nimport type {AppRouter, PrivateRouter} from '../../bff/trpc';\n\nexport const getTRPCClient = (baseUrl: string) => {\n  return createTRPCClient<AppRouter & PrivateRouter>({\n    links: [httpBatchLink({url: `${baseUrl}/bff`})],\n  });\n};\n"
+    },
+    {
+      "file": "stacks/BffApi.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 976,
+      "full_content": "import type {StackContext} from 'sst/constructs';\nimport {Api, use} from 'sst/constructs';\nimport {AppConfig} from './AppConfig';\n\nexport function BffApi({stack}: StackContext) {\n  const {hostedZone, target, featureAppName} = use(AppConfig);\n  const baseUrl = `/__app__/${featureAppName}/${target}`;\n  const privateBaseUrl = `/__app-private__/${featureAppName}/${target}`;\n\n  const api = new Api(stack, `api`, {\n    customDomain: {\n      hostedZone,\n      domainName: [`stage`, `dev`, `prod`].includes(stack.stage)\n        ? `bff.${hostedZone}`\n        : `bff.${stack.stage}.${hostedZone}`,\n    },\n    routes: {\n      [`ANY ${baseUrl}/bff/{proxy+}`]: {\n        function: {\n          handler: `src/bff/trpc.handler`,\n        },\n      },\n      [`ANY ${privateBaseUrl}/bff/{proxy+}`]: {\n        function: {\n          handler: `src/bff/trpc.privateHandler`,\n        },\n      },\n    },\n  });\n\n  stack.addOutputs({\n    apiUrl: api.customDomainUrl ?? api.url,\n  });\n\n  return api;\n}\n"
+    },
+    {
+      "file": "stacks/Site.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": true,
+      "full_content_length": 4319,
+      "full_content": "import * as aws from 'aws-cdk-lib';\nimport * as cloudfront from 'aws-cdk-lib/aws-cloudfront';\nimport * as origins from 'aws-cdk-lib/aws-cloudfront-origins';\nimport * as lambda from 'aws-cdk-lib/aws-lambda';\nimport type {StackContext} from 'sst/constructs';\nimport {Bucket, StaticSite, use} from 'sst/constructs';\nimport {AppConfig} from './AppConfig';\nimport {BffApi} from './BffApi';\n\nexport function Site({stack, app}: StackContext) {\n  const {hostedZone, target} = use(AppConfig);\n  const baseUrl = `/__app__/${app.name}/${target}`;\n  const privateBaseUrl = `/__app-private__/${app.name}/${target}`;\n  const api = use(BffApi);\n\n  const originRewrite = new cloudfront.experimental.EdgeFunction(\n    stack,\n    `OriginRewriteEdge`,\n    {\n      code: lambda.Code.fromInline(`\n      exports.handler = async (event) => {\n        console.debug(\"event\", JSON.stringify(event));\n      \n        const request = event.Records[0].cf.request;\n        const [, , appName, appVersion] = request.uri.split(\"/\");\n      \n        const domainName = appVersion + \".\" + appName + \".feature-app.srv.smart.com\";\n      \n        request.origin.custom.domainName = domainName;\n        request.headers[\"host\"] = [{ key: \"Host\", value: domainName }];\n      \n        console.debug(\"request\", JSON.stringify(request));\n      \n        return request;\n      };\n      `),\n      runtime: lambda.Runtime.NODEJS_LATEST,\n      handler: `index.handler`,\n      stackId: app.logicalPrefixedName(`origin-rewrite`),\n    },\n  );\n\n  const bucket = new Bucket(stack, `frontend-bucket`, {\n    blockPublicACLs: true,\n    cdk: {\n      bucket: {\n        autoDeleteObjects: true,\n        removalPolicy: aws.RemovalPolicy.DESTROY,\n      },\n    },\n  });\n  const S3Origin = new origins.S3Origin(bucket.cdk.bucket);\n  const site = new StaticSite(stack, `frontend`, {\n    buildOutput: `build`,\n    buildCommand: `npx pnpm run build`,\n    environment: {\n      BASE_URL: baseUrl,\n    },\n    dev: {\n      url: `http://localhost:${process.env.PORT ?? 3000}`,\n    },\n    customDomain: {\n      hostedZone,\n      domainName: hostedZone,\n    },\n    assets: {\n      fileOptions: [\n        {\n          files: [`**/feature-app.js`],\n          cacheControl: `max-age=${365 * 24 * 60 * 60}, immutable, public`,\n        },\n      ],\n    },\n    cdk: {\n      bucket: bucket.cdk.bucket,\n      distribution: {\n        defaultBehavior: {\n          origin: S3Origin,\n        },\n        additionalBehaviors: {\n          [`${baseUrl}/bff/*`]: {\n            origin: new origins.HttpOrigin(aws.Fn.parseDomainName(api.url)),\n            allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,\n            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,\n            viewerProtocolPolicy:\n              cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,\n            originRequestPolicy:\n              cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,\n          },\n          [`${privateBaseUrl}/bff/*`]: {\n            origin: new origins.HttpOrigin(aws.Fn.parseDomainName(api.url)),\n            allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,\n            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,\n            viewerProtocolPolicy:\n              cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,\n            originRequestPolicy:\n              cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,\n          },\n          [`/__app__/${app.name}/*`]: {\n            origin: S3Origin,\n            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,\n            viewerProtocolPolicy:\n              cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,\n            originRequestPolicy:\n              cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,\n          },\n          [`/__app__/*`]: {\n            origin: new origins.HttpOrigin(`smart.com`),\n            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,\n            originRequestPolicy:\n              cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,\n            e",
+      "full_content_truncated": true
+    },
+    {
+      "file": "webpack/webpack.config.feature-app.ts",
+      "hasFunctionalChange": false,
+      "hasMultipleHunks": false
+    },
+    {
+      "file": "webpack/webpack.config.web-app.ts",
+      "hasFunctionalChange": true,
+      "hasMultipleHunks": false,
+      "full_content_length": 3873,
+      "full_content": "import path from 'path';\nimport {BuildTimestampPlugin} from '@smart/server-utils';\nimport CopyWebpackPlugin from 'copy-webpack-plugin';\nimport HtmlInlineCssWebpackPlugin from 'html-inline-css-webpack-plugin';\nimport HtmlWebpackPlugin from 'html-webpack-plugin';\nimport MiniCssExtractPlugin from 'mini-css-extract-plugin';\nimport type {Configuration} from 'webpack';\nimport webpack from 'webpack';\nimport type {Configuration as WebpackDevServerConfiguration} from 'webpack-dev-server';\nimport merge from 'webpack-merge';\nimport {buildPath, getCommonConfig} from './webpack.config.common';\n\ninterface WebAppOptions {\n  readonly mode: Configuration['mode'];\n  readonly stage: string;\n  readonly target: string;\n  readonly baseUrl: string;\n  readonly privateBaseUrl: string;\n  readonly featureAppName: string;\n  readonly hostedZone: string;\n}\n\nexport const getWebAppConfig = (\n  options: WebAppOptions,\n): Configuration & WebpackDevServerConfiguration => {\n  const config: Configuration & WebpackDevServerConfiguration = {\n    mode: options.mode,\n    entry: [buildPath(`src`, `feature-app`, `index.tsx`)],\n    output: {\n      filename: `index.js`,\n      path: buildPath(`build`, `assets`),\n      publicPath: `auto`,\n    },\n    devServer: {\n      port: process.env.PORT ?? 3000,\n      proxy: [\n        {\n          path: () => false,\n          context: (pathname) => {\n            if (\n              pathname.startsWith(`/__app__/`) ||\n              pathname.startsWith(`/__app-private__/`)\n            ) {\n              const [_, _appPath, featureAppName] = pathname.split(`/`);\n              return featureAppName !== options.featureAppName;\n            }\n            return false;\n          },\n          target: `https://${options.stage}.${options.hostedZone}`,\n          changeOrigin: true,\n          router: ({path: p}) => {\n            const [_, _appPath, featureAppName, env] = p.split(`/`);\n            return `https://${env}.${featureAppName}.feature-app.srv.smart.com`;\n          },\n          logLevel: `debug`,\n          secure: false,\n        },\n        {\n          context: (pathname) =>\n            pathname.startsWith(`${options.baseUrl}/bff`) ||\n            pathname.startsWith(`${options.privateBaseUrl}/bff`),\n          target: `https://bff.${options.stage}.${options.hostedZone}`,\n          changeOrigin: true,\n          logLevel: `debug`,\n          secure: false,\n        },\n      ],\n      onListening: () => {\n        console.log(`Listening on port: ${process.env.PORT ?? 3000}`);\n      },\n    },\n\n    plugins: [\n      new HtmlWebpackPlugin({\n        template: buildPath(`src`, `feature-app`, `index.html`),\n        filename:\n          options.mode === `development` ? `index.html` : `../index.html`,\n        cache: false,\n        templateParameters: {baseUrl: options.baseUrl},\n      }),\n      new webpack.SourceMapDevToolPlugin({\n        filename: `[file].map`,\n        publicPath: `${options.baseUrl}/assets/`,\n        namespace: `${options.featureAppName}/${options.target}`,\n      }),\n      new MiniCssExtractPlugin({filename: `index.css`}),\n      new HtmlInlineCssWebpackPlugin(),\n      new CopyWebpackPlugin({\n        patterns: [\n          `static`,\n          path.join(\n            path.dirname(require.resolve(`@smart/web-components/package.json`)),\n            `dist/assets`,\n          ),\n        ],\n      }),\n      new webpack.container.ModuleFederationPlugin({\n        shared: {\n          'react': {singleton: true, eager: true},\n          'react-dom': {\n            singleton: true,\n            eager: true,\n            requiredVersion: false,\n          },\n          '@feature-hub/react': {singleton: true, eager: true},\n        },\n      }),\n      new BuildTimestampPlugin({target: options.target}),\n    ],\n    resolve: {\n      fallback: {\n        child_process: false,\n      },\n    },\n  };\n\n  return merge(getCommonConfig(options), config);\n};\n"
+    }
+  ],
+  "excludedFiles": [],
+  "tokenUsage": [
+    {
+      "model": "kimi-k2.5",
+      "elapsedMs": 113686,
+      "promptTokens": 7162,
+      "responseTokens": 4530,
+      "totalTokens": 11692,
+      "cachedTokens": null,
+      "toolUsePromptTokens": null,
+      "thoughtsTokens": null,
+      "source": "usage"
+    }
+  ],
+  "analysis": {
+    "summary": "The tRPC client is misconfigured to access both public and private routers through a single endpoint, but the backend now serves them on separate URLs, causing all private procedure calls to fail at runtime.",
+    "bugs": [
+      {
+        "title": "tRPC client cannot access private routes",
+        "filePath": "src/feature-app/utils/get-trpc-client.ts",
+        "lineHint": "Line 5-7",
+        "description": "The client is created with a single URL endpoint (`${baseUrl}/bff`) but the type signature claims to support both AppRouter and PrivateRouter procedures. However, the backend infrastructure changes moved private routes to a separate URL path (`${privateBaseUrl}/bff`) served by a different handler. When the client attempts to call private procedures (postCart, deleteCart, etc.), it will send requests to the public endpoint which does not have those procedures registered, resulting in 'procedure not found' errors.",
+        "risk": "All cart mutation operations (postCart, deleteCart, postEntry, deleteEntry, replaceEntry) and compatibility checks will fail at runtime because the client sends them to the wrong HTTP endpoint.",
+        "codeSnippet": "import type {AppRouter, PrivateRouter} from '../../bff/trpc';\n\nexport const getTRPCClient = (baseUrl: string) => {\n-  return createTRPCClient<AppRouter>({\n+  return createTRPCClient<AppRouter & PrivateRouter>({\n     links: [httpBatchLink({url: `${baseUrl}/bff`})],\n   });\n };"
+      }
+    ],
+    "notBugs": [
+      {
+        "topic": "Router split in trpc.ts",
+        "reason": "Intentional architectural change to separate public read-only operations from private write operations. The split itself is correct; the issue is only in the client configuration that fails to account for the separate endpoints."
+      },
+      {
+        "topic": "Removal of pathRewrite in webpack dev server",
+        "reason": "This aligns the development environment with the new production routing where API Gateway handles the full path including the base URL prefix. The change is consistent with the BffApi.ts route definitions."
+      },
+      {
+        "topic": "CloudFront function removal in Site.ts",
+        "reason": "The URL rewriting logic is no longer needed because the API Gateway routes in BffApi.ts now explicitly include the full path patterns (`/__app__/...` and `/__app-private__/...`)."
+      }
+    ]
+  }
+}
