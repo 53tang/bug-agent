@@ -69,6 +69,10 @@ bug_agent_file_filter:
     - "**/schema.*"
     - "**/aem-dev-schema.*"
     - "**/*.gql.*"
+    - "**/*.d.ts"
+    - "**/types.ts"
+    - "**/*types.ts"
+    - "**/type.ts"
 
   # Sometimes important: only include when bug type matches
   conditional_include:
@@ -91,13 +95,6 @@ bug_agent_file_filter:
         - "**/.gitlab-ci.yml"
         - "**/build.gradle*"
         - "**/pom.xml"
-
-    typescript_types:
-      include_globs:
-        - "**/*.d.ts"
-        - "**/types.ts"
-        - "**/*types.ts"
-        - "**/type.ts"
 
   # Size gates
   size_rules:
