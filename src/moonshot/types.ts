@@ -1,18 +1,20 @@
+import type { AnalysisOutput } from './schema';
+
+/** Token usage mapped from AI SDK LanguageModelUsage (input/output tokens). */
 export interface TokenUsage {
   model: string;
   elapsedMs: number | null;
-  promptTokens: number | null;
-  responseTokens: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
   totalTokens: number | null;
-  cachedTokens: number | null;
-  toolUsePromptTokens: number | null;
-  thoughtsTokens: number | null;
+  cacheReadTokens: number | null;
+  reasoningTokens: number | null;
   source: string;
 }
 
 export interface MoonshotResult {
   rawText: string;
-  structured: Record<string, unknown> | null;
+  structured: AnalysisOutput | null;
   parseError: string | null;
   quotaExceeded?: boolean;
   tokenUsage: TokenUsage[];

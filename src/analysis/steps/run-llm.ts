@@ -1,5 +1,5 @@
-import { callMoonshotAI, type MoonshotResult } from '../../moonshot';
-import { demoteVocCdcMulesoftBugs, type Structured } from '../../render';
+import { callMoonshotAI, type AnalysisOutput, type MoonshotResult } from '../../moonshot';
+import { demoteVocCdcMulesoftBugs } from '../../render';
 
 export async function runLlmAnalysis(
   promptChangeList: Record<string, unknown>[],
@@ -29,10 +29,8 @@ export async function runLlmAnalysis(
     repoFullName,
     prId,
   });
-  if (analysis?.structured) {
-    analysis.structured = demoteVocCdcMulesoftBugs(
-      analysis.structured as unknown as Structured,
-    ) as unknown as Record<string, unknown>;
+  if (analysis.structured) {
+    analysis.structured = demoteVocCdcMulesoftBugs(analysis.structured) as AnalysisOutput;
   }
   console.log(`[analyze] Moonshot analysis length: ${analysis.rawText.length} chars`);
   return analysis;

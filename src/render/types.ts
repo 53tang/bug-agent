@@ -14,7 +14,9 @@ export interface NotBug {
   reason?: string;
 }
 
+/** Matches moonshot/analysisOutputSchema for markdown and post-results */
 export interface Structured {
+  summary?: string;
   bugs?: Bug[];
   notBugs?: NotBug[];
 }

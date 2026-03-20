@@ -1,70 +1,96 @@
-import OpenAI from 'openai';
-import { MOONSHOT_BASE_URL, MOONSHOT_MODEL, MOONSHOT_TEMPERATURE, getEnv } from '../config';
+import { createMoonshotAI } from '@ai-sdk/moonshotai';
+import { generateObject, type LanguageModelUsage } from 'ai';
+import { getEnv, MOONSHOT_MODEL, MOONSHOT_TEMPERATURE } from '../config';
 import { buildPrompt } from './prompt-builder';
-import { extractUsageMetadata, parseJsonResponse } from './response';
+import { analysisOutputSchema, type AnalysisOutput } from './schema';
 import type { MoonshotResult, PromptMeta, TokenUsage } from './types';
 
-function getMoonshotClient(): OpenAI {
-  const apiKey = getEnv('MOON_SHOT_KEY');
-  return new OpenAI({
-    apiKey,
-    baseURL: MOONSHOT_BASE_URL,
+/** CN region API (same endpoint as previous OpenAI-compatible client). */
+const MOONSHOT_API_BASE_URL = 'https://api.moonshot.cn/v1';
+
+function getMoonshotProvider() {
+  return createMoonshotAI({
+    apiKey: getEnv('MOON_SHOT_KEY'),
+    baseURL: MOONSHOT_API_BASE_URL,
   });
 }
 
-async function attemptMoonshotCall(
-  client: OpenAI,
+function mapUsage(
+  usage: LanguageModelUsage | undefined,
   model: string,
+  elapsedMs: number,
+): TokenUsage {
+  return {
+    model,
+    elapsedMs,
+    inputTokens: usage?.inputTokens ?? null,
+    outputTokens: usage?.outputTokens ?? null,
+    totalTokens: usage?.totalTokens ?? null,
+    cacheReadTokens: usage?.inputTokenDetails?.cacheReadTokens ?? null,
+    reasoningTokens: usage?.outputTokenDetails?.reasoningTokens ?? null,
+    source: 'ai_sdk',
+  };
+}
+
+async function attemptMoonshotCall(
   fullPrompt: string,
   fileCount: number,
 ): Promise<{
   rawText: string;
-  structured: Record<string, unknown> | null;
+  structured: AnalysisOutput | null;
   parseError: string | null;
   tokenUsage: TokenUsage;
 }> {
-  console.log(`[moonshot] Start analysis for ${fileCount} file(s) using ${model}`);
+  const moonshot = getMoonshotProvider();
+  console.log(`[moonshot] Start analysis for ${fileCount} file(s) using ${MOONSHOT_MODEL}`);
   const start = Date.now();
-  const response = await client.chat.completions.create({
-    model,
-    messages: [{ role: 'user', content: fullPrompt }],
+
+  const { object, usage, finishReason, warnings } = await generateObject({
+    model: moonshot(MOONSHOT_MODEL),
+    schema: analysisOutputSchema,
+    prompt: fullPrompt,
     temperature: MOONSHOT_TEMPERATURE,
   });
-  const elapsedMs = Date.now() - start;
-  console.log(`[moonshot] Done in ${elapsedMs} ms with ${model}`);
 
-  const usage = extractUsageMetadata(response);
-  const usageRecord: TokenUsage = usage
-    ? { ...usage, model, elapsedMs }
-    : {
-        model,
-        elapsedMs,
-        promptTokens: null,
-        responseTokens: null,
-        totalTokens: null,
-        cachedTokens: null,
-        toolUsePromptTokens: null,
-        thoughtsTokens: null,
-        source: 'usage_missing',
-      };
-  const inputTokens = usageRecord.promptTokens ?? '?';
-  const outputTokens = usageRecord.responseTokens ?? '?';
-  const totalTokens = usageRecord.totalTokens ?? '?';
+  const elapsedMs = Date.now() - start;
   console.log(
-    `[moonshot] Tokens (${model}): input=${inputTokens} output=${outputTokens} total=${totalTokens}`,
+    `[moonshot] Done in ${elapsedMs} ms with ${MOONSHOT_MODEL} (finish: ${finishReason})`,
+  );
+  if (warnings?.length) {
+    console.warn('[moonshot] Warnings:', warnings);
+  }
+
+  const usageRecord = mapUsage(usage, MOONSHOT_MODEL, elapsedMs);
+  const inTok = usageRecord.inputTokens ?? '?';
+  const outTok = usageRecord.outputTokens ?? '?';
+  const totTok = usageRecord.totalTokens ?? '?';
+  console.log(
+    `[moonshot] Tokens (${MOONSHOT_MODEL}): input=${inTok} output=${outTok} total=${totTok}`,
   );
 
-  const rawText = response?.choices?.[0]?.message?.content ?? '';
-  const { parsed, error } = parseJsonResponse(rawText);
-  if (error) {
-    console.warn(`[moonshot] JSON parse failed: ${error}`);
-  }
+  const rawText = JSON.stringify(object, null, 2);
   return {
     rawText,
-    structured: parsed,
-    parseError: error,
+    structured: object,
+    parseError: null,
     tokenUsage: usageRecord,
   };
+}
+
+function isRateLimitError(error: unknown): boolean {
+  const status =
+    ((error as Record<string, unknown>)?.status as number | undefined) ||
+    (((error as Record<string, unknown>)?.response as Record<string, unknown>)?.status as
+      | number
+      | undefined);
+  const message = (error as Error)?.message || '';
+  return (
+    status === 429 ||
+    message.includes('429') ||
+    message.includes('rate limit') ||
+    message.includes('Rate limit') ||
+    message.includes('RATE_LIMIT')
+  );
 }
 
 export async function callMoonshotAI(
@@ -72,40 +98,23 @@ export async function callMoonshotAI(
   changeList: Record<string, unknown>[],
   meta: PromptMeta,
 ): Promise<MoonshotResult> {
-  const client = getMoonshotClient();
   const fullPrompt = buildPrompt(prompt, changeList, meta);
   const tokenUsage: TokenUsage[] = [];
 
   try {
-    const result = await attemptMoonshotCall(client, MOONSHOT_MODEL, fullPrompt, changeList.length);
-    if (result.tokenUsage) {
-      tokenUsage.push(result.tokenUsage);
-    }
+    const result = await attemptMoonshotCall(fullPrompt, changeList.length);
+    tokenUsage.push(result.tokenUsage);
     return { ...result, tokenUsage };
   } catch (error) {
-    const status =
-      ((error as Record<string, unknown>)?.status as number | undefined) ||
-      (((error as Record<string, unknown>)?.response as Record<string, unknown>)?.status as
-        | number
-        | undefined);
-    const message = (error as Error)?.message || '';
-    const isRateLimit =
-      status === 429 ||
-      message.includes('429') ||
-      message.includes('rate limit') ||
-      message.includes('Rate limit') ||
-      message.includes('RATE_LIMIT');
-
-    if (isRateLimit) {
+    if (isRateLimitError(error)) {
       tokenUsage.push({
         model: MOONSHOT_MODEL,
         elapsedMs: null,
-        promptTokens: null,
-        responseTokens: null,
+        inputTokens: null,
+        outputTokens: null,
         totalTokens: null,
-        cachedTokens: null,
-        toolUsePromptTokens: null,
-        thoughtsTokens: null,
+        cacheReadTokens: null,
+        reasoningTokens: null,
         source: 'error',
       });
       console.warn('[moonshot] Rate limit hit, skipping retry');
