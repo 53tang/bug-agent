@@ -1,4 +1,4 @@
-﻿{{PROMPT}}
+{{PROMPT}}
 
 PR Context:
 - Title: {{PR_TITLE}}
@@ -26,7 +26,6 @@ OUTPUT: Provide a concise bullet list of potential bugs. For each bug:
 - File path and line hint
 - What the bug is (short, simple wording)
 - Why it's risky (must be HIGH severity - will cause incorrect behavior)
-Additionally, provide architecture/management/quantity suggestions that are NOT bugs.
 
 OUTPUT FORMAT: Return STRICT JSON only (no markdown, no code fences).
 Schema:
@@ -42,13 +41,6 @@ Schema:
       "codeSnippet": "3-5 lines from diff showing the bug"
     }
   ],
-  "suggestions": [
-    {
-      "topic": "Architecture / Management / Quantity",
-      "suggestion": "actionable recommendation",
-      "rationale": "short reasoning"
-    }
-  ],
   "notBugs": [
     {
       "topic": "short label",
@@ -57,7 +49,6 @@ Schema:
   ]
 }
 Limit bugs to at most 3 items.
-If there are no suggestions, return an empty suggestions array.
 
 IMPORTANT: For EVERY bug, you MUST include a 'codeSnippet' field with 3-5 lines from the diff:
 - Extract the exact lines from the provided diff that show the problematic code

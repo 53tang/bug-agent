@@ -1,38 +1,8 @@
-import fs from 'node:fs';
 import OpenAI from 'openai';
-import {
-  PROMPT_PATH,
-  MOONSHOT_BASE_URL,
-  MOONSHOT_MODEL,
-  MOONSHOT_TEMPERATURE,
-  getEnv,
-} from './config';
-
-export interface TokenUsage {
-  model: string;
-  elapsedMs: number | null;
-  promptTokens: number | null;
-  responseTokens: number | null;
-  totalTokens: number | null;
-  cachedTokens: number | null;
-  toolUsePromptTokens: number | null;
-  thoughtsTokens: number | null;
-  source: string;
-}
-
-export interface MoonshotResult {
-  rawText: string;
-  structured: Record<string, unknown> | null;
-  parseError: string | null;
-  quotaExceeded?: boolean;
-  tokenUsage: TokenUsage[];
-}
-
-interface PromptMeta {
-  prTitle?: string;
-  repoFullName?: string;
-  prId?: string | number;
-}
+import { MOONSHOT_BASE_URL, MOONSHOT_MODEL, MOONSHOT_TEMPERATURE, getEnv } from '../config';
+import { buildPrompt } from './prompt-builder';
+import { extractUsageMetadata, parseJsonResponse } from './response';
+import type { MoonshotResult, PromptMeta, TokenUsage } from './types';
 
 function getMoonshotClient(): OpenAI {
   const apiKey = getEnv('MOON_SHOT_KEY');
@@ -40,68 +10,6 @@ function getMoonshotClient(): OpenAI {
     apiKey,
     baseURL: MOONSHOT_BASE_URL,
   });
-}
-
-function loadPromptTemplate(): string {
-  return fs.readFileSync(PROMPT_PATH, 'utf8');
-}
-
-function buildPrompt(
-  prompt: string,
-  changeList: Record<string, unknown>[],
-  meta: PromptMeta = {},
-): string {
-  const { prTitle = '', repoFullName = '', prId = '' } = meta;
-  const template = loadPromptTemplate();
-  return template
-    .replace('{{PROMPT}}', prompt)
-    .replace('{{PR_TITLE}}', prTitle)
-    .replace('{{REPO}}', repoFullName)
-    .replace('{{PR_ID}}', String(prId))
-    .replace('{{CHANGE_LIST}}', JSON.stringify(changeList, null, 2));
-}
-
-function extractJson(text: string): string {
-  if (!text) return '';
-  const trimmed = text.trim();
-  if (trimmed.startsWith('```')) {
-    const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (match) return match[1].trim();
-  }
-  return trimmed;
-}
-
-function parseJsonResponse(text: string): {
-  parsed: Record<string, unknown> | null;
-  error: string | null;
-} {
-  const payload = extractJson(text);
-  if (!payload) return { parsed: null, error: 'empty_response' };
-  try {
-    return { parsed: JSON.parse(payload), error: null };
-  } catch (error) {
-    return { parsed: null, error: (error as Error).message };
-  }
-}
-
-function extractUsageMetadata(response: OpenAI.Chat.ChatCompletion): TokenUsage | null {
-  const usage = response?.usage;
-  if (!usage) return null;
-  return {
-    promptTokens: usage.prompt_tokens ?? null,
-    responseTokens: usage.completion_tokens ?? null,
-    totalTokens: usage.total_tokens ?? null,
-    cachedTokens: ((usage as unknown as Record<string, unknown>).cached_tokens as number) ?? null,
-    toolUsePromptTokens:
-      ((usage.prompt_tokens_details as Record<string, unknown> | undefined)
-        ?.cached_tokens as number) ?? null,
-    thoughtsTokens:
-      ((usage.completion_tokens_details as Record<string, unknown> | undefined)
-        ?.reasoning_tokens as number) ?? null,
-    source: 'usage',
-    model: '',
-    elapsedMs: null,
-  };
 }
 
 async function attemptMoonshotCall(
