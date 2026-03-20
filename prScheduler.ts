@@ -1,7 +1,8 @@
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const fs = require('fs');
-const path = require('path');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_WORKSPACE = 'smart_eco-platform';
 const DEFAULT_FETCH_INTERVAL_MS = 10 * 60 * 1000;
@@ -15,27 +16,50 @@ const DEFAULT_AUTHOR_UUIDS = [
   '{8ad2417d-9d07-4e7d-830b-b88fef044fb7}',
 ];
 const IGNORED_REPOS = new Set(['smart_eco-platform/api-integration-aws']);
-const PR_ANALYSIS_QUEUE_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+const PR_ANALYSIS_QUEUE_INTERVAL_MS = 2 * 60 * 1000;
 const MAX_DAILY_ANALYSIS_COUNT = 20;
-const RETRY_DELAY_MS = 60 * 1000; // 1 minute
-const MAX_RETRY_ATTEMPTS = 2; // 1 initial + 1 retry
+const RETRY_DELAY_MS = 60 * 1000;
+const MAX_RETRY_ATTEMPTS = 2;
 const TIMESTAMP_FILE = path.join(__dirname, 'pr-analysis', '.latest-timestamp');
 
-function getTodayDateString() {
-  return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+interface Logger {
+  log: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
 }
 
-function getTodayAnalysisDir(hasBugs = null) {
+interface PrData {
+  id: number;
+  title?: string;
+  state?: string;
+  created_on?: string;
+  source?: { repository?: { full_name?: string }; commit?: { hash?: string } };
+  destination?: { branch?: { name?: string } };
+  links?: {
+    html?: { href?: string };
+    self?: { href?: string };
+    diff?: { href?: string };
+  };
+  author?: { display_name?: string; username?: string; uuid?: string };
+}
+
+type FetchJsonFn = (url: string, authHeader: string) => Promise<Record<string, unknown>>;
+type AnalyzePRFn = (prUrl: string) => Promise<unknown>;
+
+function getTodayDateString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+export function getTodayAnalysisDir(hasBugs: boolean | null = null): string {
   const today = getTodayDateString();
   if (hasBugs === null) {
-    // For backward compatibility when checking existing files
     return path.join(__dirname, 'pr-analysis', today);
   }
   const bugStatus = hasBugs ? 'with-bugs' : 'without-bugs';
   return path.join(__dirname, 'pr-analysis', bugStatus, today);
 }
 
-function buildTodayUtcRange() {
+function buildTodayUtcRange(): { startIso: string; endIso: string } {
   const start = new Date();
   start.setUTCHours(0, 0, 0, 0);
   const end = new Date(start);
@@ -46,7 +70,7 @@ function buildTodayUtcRange() {
   };
 }
 
-function saveLatestTimestamp(timestamp) {
+function saveLatestTimestamp(timestamp: string): void {
   try {
     const analysisDir = path.join(__dirname, 'pr-analysis');
     if (!fs.existsSync(analysisDir)) {
@@ -54,119 +78,114 @@ function saveLatestTimestamp(timestamp) {
     }
     fs.writeFileSync(TIMESTAMP_FILE, timestamp, 'utf8');
   } catch (error) {
-    console.error('[timestamp] Failed to save latest timestamp:', error.message);
+    console.error('[timestamp] Failed to save latest timestamp:', (error as Error).message);
   }
 }
 
-function loadLatestTimestamp() {
+function loadLatestTimestamp(): string | null {
   try {
     if (fs.existsSync(TIMESTAMP_FILE)) {
       return fs.readFileSync(TIMESTAMP_FILE, 'utf8').trim();
     }
   } catch (error) {
-    console.error('[timestamp] Failed to load latest timestamp:', error.message);
+    console.error('[timestamp] Failed to load latest timestamp:', (error as Error).message);
   }
   return null;
 }
 
-function migratePrAnalysisFiles() {
+function migratePrAnalysisFiles(): void {
   const rootDir = path.join(__dirname, 'pr-analysis');
   if (!fs.existsSync(rootDir)) {
     return;
   }
-  
+
   const files = fs.readdirSync(rootDir);
-  const prFiles = files.filter(f => f.startsWith('pr-') && f.endsWith('.json') && f !== '.latest-timestamp');
-  
+  const prFiles = files.filter(
+    (f) => f.startsWith('pr-') && f.endsWith('.json') && f !== '.latest-timestamp',
+  );
+
   if (prFiles.length === 0) {
     return;
   }
-  
+
   let movedCount = 0;
   for (const filename of prFiles) {
     const match = filename.match(/^pr-\d+-(.+)\.json$/);
     if (match) {
-      // Format: 2026-02-03T08-59-09-379Z -> 2026-02-03T08:59:09.379Z
       const timestampStr = match[1]
         .replace(/T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/, 'T$1:$2:$3.$4Z')
         .replace(/T(\d{2})-(\d{2})-(\d{2})Z$/, 'T$1:$2:$3.000Z');
-      
+
       const timestamp = new Date(timestampStr);
       if (!isNaN(timestamp.getTime())) {
         const fileDate = timestamp.toISOString().split('T')[0];
         const targetDir = path.join(rootDir, fileDate);
-        
+
         if (!fs.existsSync(targetDir)) {
           fs.mkdirSync(targetDir, { recursive: true });
         }
-        
+
         const sourcePath = path.join(rootDir, filename);
         const targetPath = path.join(targetDir, filename);
-        
-        // Only move if target doesn't exist
+
         if (!fs.existsSync(targetPath)) {
           fs.renameSync(sourcePath, targetPath);
           movedCount++;
         } else {
-          // If target exists, remove source (duplicate)
           fs.unlinkSync(sourcePath);
         }
       }
     }
   }
-  
+
   if (movedCount > 0) {
     console.log(`[migration] Moved ${movedCount} PR analysis file(s) to date subfolders`);
   }
 }
 
-function isPrAnalyzedToday(prId) {
-  // Check both with-bugs and without-bugs directories
+function isPrAnalyzedToday(prId: number): boolean {
   const withBugsDir = getTodayAnalysisDir(true);
   const withoutBugsDir = getTodayAnalysisDir(false);
-  
-  const checkDir = (dir) => {
+
+  const checkDir = (dir: string): boolean => {
     if (!fs.existsSync(dir)) {
       return false;
     }
     const files = fs.readdirSync(dir);
-    return files.some(f => f.startsWith(`pr-${prId}-`) && f.endsWith('.json'));
+    return files.some((f) => f.startsWith(`pr-${prId}-`) && f.endsWith('.json'));
   };
-  
+
   return checkDir(withBugsDir) || checkDir(withoutBugsDir);
 }
 
-function initializeLatestTimestamp() {
-  // First try to load from saved file
+function initializeLatestTimestamp(): string | null {
   const saved = loadLatestTimestamp();
   if (saved) {
     return saved;
   }
-  
-  // Fallback: scan all date folders for latest timestamp
+
   const analysisDir = path.join(__dirname, 'pr-analysis');
   if (!fs.existsSync(analysisDir)) {
     return null;
   }
-  
-  let latestTimestamp = null;
+
+  let latestTimestamp: Date | null = null;
   const entries = fs.readdirSync(analysisDir, { withFileTypes: true });
-  
+
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    
+
     const dateFolder = path.join(analysisDir, entry.name);
     const files = fs.readdirSync(dateFolder);
-    const prFiles = files.filter(f => f.startsWith('pr-') && f.endsWith('.json'));
-    
+    const prFiles = files.filter((f) => f.startsWith('pr-') && f.endsWith('.json'));
+
     for (const filename of prFiles) {
       const match = filename.match(/^pr-\d+-(.+)\.json$/);
       if (match) {
-        // Format: 2026-02-03T08-59-09-379Z -> 2026-02-03T08:59:09.379Z
         const timestampStr = match[1]
           .replace(/T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/, 'T$1:$2:$3.$4Z')
           .replace(/T(\d{2})-(\d{2})-(\d{2})Z$/, 'T$1:$2:$3.000Z');
-        
+
         const timestamp = new Date(timestampStr);
         if (!isNaN(timestamp.getTime())) {
           if (!latestTimestamp || timestamp > latestTimestamp) {
@@ -176,18 +195,18 @@ function initializeLatestTimestamp() {
       }
     }
   }
-  
+
   return latestTimestamp ? latestTimestamp.toISOString() : null;
 }
 
-function resolveWorkspace(rawWorkspace) {
+function resolveWorkspace(rawWorkspace: string | undefined): string {
   if (rawWorkspace && String(rawWorkspace).trim()) {
     return String(rawWorkspace).trim();
   }
   return DEFAULT_WORKSPACE;
 }
 
-function resolveIntervalMs(rawIntervalMs) {
+function resolveIntervalMs(rawIntervalMs: string | number | undefined | null): number {
   if (rawIntervalMs === undefined || rawIntervalMs === null || rawIntervalMs === '') {
     return DEFAULT_FETCH_INTERVAL_MS;
   }
@@ -198,7 +217,7 @@ function resolveIntervalMs(rawIntervalMs) {
   return value;
 }
 
-function normalizeUuid(raw) {
+function normalizeUuid(raw: string): string {
   const cleaned = String(raw).trim().replace(/^"|"$/g, '');
   if (!cleaned) return '';
   if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
@@ -207,7 +226,7 @@ function normalizeUuid(raw) {
   return `{${cleaned}}`;
 }
 
-function resolveAuthorUuids(rawAuthorUuids) {
+function resolveAuthorUuids(rawAuthorUuids: string | undefined): string[] {
   if (rawAuthorUuids && String(rawAuthorUuids).trim()) {
     const list = String(rawAuthorUuids)
       .split(',')
@@ -220,19 +239,23 @@ function resolveAuthorUuids(rawAuthorUuids) {
   return DEFAULT_AUTHOR_UUIDS;
 }
 
-function isIgnoredRepo(repoFullName) {
+function isIgnoredRepo(repoFullName: string): boolean {
   return IGNORED_REPOS.has(String(repoFullName || '').trim());
 }
 
-async function fetchAllPages(url, authHeader, fetchJson) {
-  const values = [];
-  let next = url;
+async function fetchAllPages(
+  url: string,
+  authHeader: string,
+  fetchJson: FetchJsonFn,
+): Promise<Record<string, unknown>[]> {
+  const values: Record<string, unknown>[] = [];
+  let next: string | null = url;
   while (next) {
     const data = await fetchJson(next, authHeader);
     if (Array.isArray(data.values)) {
       values.push(...data.values);
     }
-    next = data.next || null;
+    next = (data.next as string) || null;
   }
   return values;
 }
@@ -243,71 +266,90 @@ async function fetchTodaysPullRequests({
   workspace,
   authorUuids,
   latestTimestamp,
-}) {
+}: {
+  getAuthHeader: () => string;
+  fetchJson: FetchJsonFn;
+  workspace: string | undefined;
+  authorUuids?: string;
+  latestTimestamp: string | null;
+}): Promise<{
+  prs: PrData[];
+  workspace: string;
+  startIso: string;
+  endIso: string;
+}> {
   const authHeader = getAuthHeader();
   const resolvedWorkspace = resolveWorkspace(workspace);
   const { startIso, endIso } = buildTodayUtcRange();
   const resolvedAuthorUuids = resolveAuthorUuids(authorUuids);
-  
-  // Build query with date and optional timestamp filter
+
   let query = `created_on >= "${startIso}" AND created_on < "${endIso}"`;
   if (latestTimestamp) {
     query += ` AND created_on > "${latestTimestamp}"`;
   }
-  
-  // Fetch PRs for each author in parallel using Promise.allSettled
-  // Using endpoint: /workspaces/{workspace}/pullrequests/{author_uuid}
+
   const fetchPromises = resolvedAuthorUuids.map(async (uuid) => {
     const url = `https://api.bitbucket.org/2.0/workspaces/${resolvedWorkspace}/pullrequests/${uuid}?pagelen=50&q=${encodeURIComponent(query)}`;
     return fetchAllPages(url, authHeader, fetchJson);
   });
-  
+
   const results = await Promise.allSettled(fetchPromises);
-  
-  // Aggregate successful results
-  const prs = [];
+
+  const prs: PrData[] = [];
   for (const result of results) {
     if (result.status === 'fulfilled' && Array.isArray(result.value)) {
-      prs.push(...result.value);
+      prs.push(...(result.value as unknown as PrData[]));
     }
   }
-  
-  // Filter out PRs that might have been analyzed already
-  const filteredPrs = latestTimestamp 
-    ? prs.filter(pr => new Date(pr.created_on) > new Date(latestTimestamp))
+
+  const filteredPrs = latestTimestamp
+    ? prs.filter((pr) => new Date(pr.created_on!) > new Date(latestTimestamp))
     : prs;
-  
+
   return { prs: filteredPrs, workspace: resolvedWorkspace, startIso, endIso };
 }
 
 class PrAnalysisQueue {
-  constructor({ analyzePR, onAnalysisComplete, logger = console }) {
-    this.queue = [];
+  private queue: PrData[] = [];
+  private analyzePR: AnalyzePRFn;
+  private onAnalysisComplete?: (createdOn: string) => void;
+  private logger: Logger;
+  private isProcessing = false;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private dailyCount = 0;
+  private lastResetDate: string;
+
+  constructor({
+    analyzePR,
+    onAnalysisComplete,
+    logger = console,
+  }: {
+    analyzePR: AnalyzePRFn;
+    onAnalysisComplete?: (createdOn: string) => void;
+    logger?: Logger;
+  }) {
     this.analyzePR = analyzePR;
     this.onAnalysisComplete = onAnalysisComplete;
     this.logger = logger;
-    this.isProcessing = false;
-    this.timer = null;
-    this.dailyCount = 0;
     this.lastResetDate = new Date().toISOString().split('T')[0];
   }
 
-  add(pr) {
-    // Check if PR was already analyzed today
+  add(pr: PrData): void {
     if (isPrAnalyzedToday(pr.id)) {
       this.logger.log(`[queue] PR #${pr.id} already analyzed today, skipping`);
       return;
     }
-    
-    // Check if PR already in queue
-    const exists = this.queue.some(queuedPr => queuedPr.id === pr.id);
+
+    const exists = this.queue.some((queuedPr) => queuedPr.id === pr.id);
     if (!exists) {
       this.queue.push(pr);
-      this.logger.log(`[queue] Added PR #${pr.id} to analysis queue. Queue size: ${this.queue.length}`);
+      this.logger.log(
+        `[queue] Added PR #${pr.id} to analysis queue. Queue size: ${this.queue.length}`,
+      );
     }
   }
 
-  resetDailyCountIfNeeded() {
+  private resetDailyCountIfNeeded(): void {
     const today = new Date().toISOString().split('T')[0];
     if (today !== this.lastResetDate) {
       this.dailyCount = 0;
@@ -316,7 +358,7 @@ class PrAnalysisQueue {
     }
   }
 
-  async processNext() {
+  async processNext(): Promise<void> {
     if (this.isProcessing || this.queue.length === 0) {
       return;
     }
@@ -324,25 +366,27 @@ class PrAnalysisQueue {
     this.resetDailyCountIfNeeded();
 
     if (this.dailyCount >= MAX_DAILY_ANALYSIS_COUNT) {
-      this.logger.log(`[queue] Daily limit reached (${MAX_DAILY_ANALYSIS_COUNT}). Skipping analysis.`);
+      this.logger.log(
+        `[queue] Daily limit reached (${MAX_DAILY_ANALYSIS_COUNT}). Skipping analysis.`,
+      );
       return;
     }
 
     this.isProcessing = true;
-    const pr = this.queue.shift();
+    const pr = this.queue.shift()!;
 
     try {
-      this.logger.log(`[queue] Processing PR #${pr.id} (${this.dailyCount + 1}/${MAX_DAILY_ANALYSIS_COUNT} today)`);
-      
-      // Use the HTML link from the API response (preferred)
-      // Fallback to constructing from self link if html link not available
+      this.logger.log(
+        `[queue] Processing PR #${pr.id} (${this.dailyCount + 1}/${MAX_DAILY_ANALYSIS_COUNT} today)`,
+      );
+
       let prUrl = pr.links?.html?.href;
       if (!prUrl && pr.links?.self?.href) {
         prUrl = pr.links.self.href
           .replace('https://api.bitbucket.org/2.0/repositories/', 'https://bitbucket.org/')
           .replace('/pullrequests/', '/pull-requests/');
       }
-      
+
       if (!prUrl) {
         this.logger.error(`[queue] Could not construct PR URL for PR #${pr.id}`);
         return;
@@ -350,21 +394,22 @@ class PrAnalysisQueue {
 
       await analyzeWithRetry(prUrl, this.analyzePR, this.logger, pr);
       this.dailyCount++;
-      
-      // Update latest timestamp after successful analysis
+
       if (this.onAnalysisComplete && pr.created_on) {
         this.onAnalysisComplete(pr.created_on);
       }
-      
-      this.logger.log(`[queue] Successfully analyzed PR #${pr.id}. Queue remaining: ${this.queue.length}`);
+
+      this.logger.log(
+        `[queue] Successfully analyzed PR #${pr.id}. Queue remaining: ${this.queue.length}`,
+      );
     } catch (error) {
-      this.logger.error(`[queue] Failed to analyze PR #${pr.id}:`, error.message);
+      this.logger.error(`[queue] Failed to analyze PR #${pr.id}:`, (error as Error).message);
     } finally {
       this.isProcessing = false;
     }
   }
 
-  start() {
+  start(): void {
     if (this.timer) {
       return;
     }
@@ -373,13 +418,12 @@ class PrAnalysisQueue {
     if (typeof this.timer.unref === 'function') {
       this.timer.unref();
     }
-    // Process immediately if queue has items
     if (this.queue.length > 0) {
       this.processNext();
     }
   }
 
-  stop() {
+  stop(): void {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
@@ -387,7 +431,12 @@ class PrAnalysisQueue {
     }
   }
 
-  getStatus() {
+  getStatus(): {
+    queueSize: number;
+    dailyCount: number;
+    maxDaily: number;
+    isProcessing: boolean;
+  } {
     return {
       queueSize: this.queue.length,
       dailyCount: this.dailyCount,
@@ -397,83 +446,94 @@ class PrAnalysisQueue {
   }
 }
 
-async function analyzeWithRetry(prUrl, analyzePR, logger, prData) {
-  let lastError = null;
-  
+async function analyzeWithRetry(
+  prUrl: string,
+  analyzePR: AnalyzePRFn,
+  logger: Logger,
+  prData: PrData,
+): Promise<void> {
+  let lastError: Error | null = null;
+
   for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
     try {
       logger.log(`[retry] Analyzing PR (attempt ${attempt}/${MAX_RETRY_ATTEMPTS})`);
       await analyzePR(prUrl);
-      return; // Success
+      return;
     } catch (error) {
-      lastError = error;
-      logger.error(`[retry] Attempt ${attempt} failed:`, error.message);
-      
-      // Check for rate limit error
-      if (error.message && error.message.includes('GenerateContentInputTokensPerModelPerMinute-FreeTier')) {
+      lastError = error as Error;
+      logger.error(`[retry] Attempt ${attempt} failed:`, (error as Error).message);
+
+      if (
+        (error as Error).message &&
+        (error as Error).message.includes('GenerateContentInputTokensPerModelPerMinute-FreeTier')
+      ) {
         logger.warn(`[retry] Rate limit detected. Saving partial analysis without retry.`);
-        
-        // Save partial analysis (rate limit = no bugs found)
+
         try {
-          const todayDir = getTodayAnalysisDir(false); // Rate limit means no bugs analyzed
+          const todayDir = getTodayAnalysisDir(false);
           if (!fs.existsSync(todayDir)) {
             fs.mkdirSync(todayDir, { recursive: true });
           }
-          
+
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const filename = `pr-${prData.id}-${timestamp}.json`;
           const filepath = path.join(todayDir, filename);
-          
+
           const dataToSave = {
             prId: prData.id,
             repoFullName: prData.source?.repository?.full_name || 'unknown',
             prTitle: prData.title || 'unknown',
             timestamp: new Date().toISOString(),
             error: 'Rate limit reached',
-            errorMessage: error.message,
+            errorMessage: (error as Error).message,
             analysis: {
               summary: 'Analysis failed due to rate limit',
               bugs: [],
               notBugs: [],
             },
           };
-          
+
           fs.writeFileSync(filepath, JSON.stringify(dataToSave, null, 2), 'utf8');
           logger.log(`[retry] Saved partial analysis to: ${filepath}`);
         } catch (saveError) {
-          logger.error(`[retry] Failed to save partial analysis:`, saveError.message);
+          logger.error(`[retry] Failed to save partial analysis:`, (saveError as Error).message);
         }
-        
-        return; // Don't retry on rate limit
+
+        return;
       }
-      
-      // If not the last attempt and not rate limit error, wait before retry
+
       if (attempt < MAX_RETRY_ATTEMPTS) {
         logger.log(`[retry] Waiting ${RETRY_DELAY_MS / 1000}s before retry...`);
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
       }
     }
   }
-  
-  // All attempts failed
+
   throw lastError;
 }
 
-function createPrFetchScheduler({
+export function createPrFetchScheduler({
   getAuthHeader,
   fetchJson,
   workspace,
   intervalMs,
+  authorUuids,
   analyzePR,
   logger = console,
-}) {
+}: {
+  getAuthHeader: () => string;
+  fetchJson: FetchJsonFn;
+  workspace: string | undefined;
+  intervalMs: string | number | undefined;
+  authorUuids?: string;
+  analyzePR: AnalyzePRFn;
+  logger?: Logger;
+}): { start: () => void; stop: () => void } {
   let inProgress = false;
-  let timer = null;
-  
-  // Migrate existing PR analysis files to date subfolders
+  let timer: ReturnType<typeof setInterval> | null = null;
+
   migratePrAnalysisFiles();
-  
-  // Initialize latest timestamp from existing pr-analysis files
+
   let latestTimestamp = initializeLatestTimestamp();
   if (latestTimestamp) {
     logger.log(`[schedule] Initialized with latest PR timestamp: ${latestTimestamp}`);
@@ -482,9 +542,8 @@ function createPrFetchScheduler({
   }
 
   const resolvedIntervalMs = resolveIntervalMs(intervalMs);
-  
-  // Callback to update latest timestamp after successful analysis
-  const onAnalysisComplete = (prCreatedOn) => {
+
+  const onAnalysisComplete = (prCreatedOn: string): void => {
     const prTimestamp = new Date(prCreatedOn).toISOString();
     if (!latestTimestamp || prTimestamp > latestTimestamp) {
       latestTimestamp = prTimestamp;
@@ -492,65 +551,64 @@ function createPrFetchScheduler({
       logger.log(`[schedule] Updated latest timestamp to: ${latestTimestamp}`);
     }
   };
-  
+
   const analysisQueue = new PrAnalysisQueue({ analyzePR, onAnalysisComplete, logger });
 
-  async function run() {
+  async function run(): Promise<void> {
     if (inProgress) {
       logger.log('[schedule] Previous PR fetch still running; skipping this tick');
       return;
     }
     inProgress = true;
     try {
-      const { prs, workspace: resolvedWorkspace, startIso, endIso } =
-        await fetchTodaysPullRequests({
-          getAuthHeader,
-          fetchJson,
-          workspace,
-          latestTimestamp,
-        });
-      
-      const ignoredPrs = prs.filter((pr) =>
-        isIgnoredRepo(pr.source?.repository?.full_name)
-      );
+      const {
+        prs,
+        workspace: resolvedWorkspace,
+        startIso,
+        endIso,
+      } = await fetchTodaysPullRequests({
+        getAuthHeader,
+        fetchJson,
+        workspace,
+        authorUuids,
+        latestTimestamp,
+      });
+
+      const ignoredPrs = prs.filter((pr) => isIgnoredRepo(pr.source?.repository?.full_name || ''));
       const filteredPrs = prs.filter(
-        (pr) => !isIgnoredRepo(pr.source?.repository?.full_name)
+        (pr) => !isIgnoredRepo(pr.source?.repository?.full_name || ''),
       );
-      
-      const timestampInfo = latestTimestamp 
-        ? ` (new PRs since ${latestTimestamp})`
-        : '';
-      
+
+      const timestampInfo = latestTimestamp ? ` (new PRs since ${latestTimestamp})` : '';
+
       logger.log(
-        `[schedule] Fetched ${filteredPrs.length} PR(s) created today (UTC ${startIso} - ${endIso})${timestampInfo} from workspace ${resolvedWorkspace}`
+        `[schedule] Fetched ${filteredPrs.length} PR(s) created today (UTC ${startIso} - ${endIso})${timestampInfo} from workspace ${resolvedWorkspace}`,
       );
       if (ignoredPrs.length > 0) {
-        logger.log(
-          `[schedule] Skipped ${ignoredPrs.length} PR(s) from ignored repos`
-        );
+        logger.log(`[schedule] Skipped ${ignoredPrs.length} PR(s) from ignored repos`);
       }
-      
-      // Add new PRs to analysis queue
+
       if (filteredPrs.length > 0) {
         for (const pr of filteredPrs) {
           analysisQueue.add(pr);
         }
         const status = analysisQueue.getStatus();
-        logger.log(`[schedule] Queue status: ${status.queueSize} pending, ${status.dailyCount}/${status.maxDaily} analyzed today`);
-        
-        // Trigger immediate processing if queue was idle
+        logger.log(
+          `[schedule] Queue status: ${status.queueSize} pending, ${status.dailyCount}/${status.maxDaily} analyzed today`,
+        );
+
         if (!status.isProcessing) {
           analysisQueue.processNext();
         }
       }
     } catch (error) {
-      logger.error('[schedule] Failed to fetch PR list:', error.message);
+      logger.error('[schedule] Failed to fetch PR list:', (error as Error).message);
     } finally {
       inProgress = false;
     }
   }
 
-  function start() {
+  function start(): void {
     const intervalMinutes = Math.round(resolvedIntervalMs / 60000);
     logger.log(`[schedule] Starting PR fetch every ${intervalMinutes} min(s)`);
     analysisQueue.start();
@@ -561,7 +619,7 @@ function createPrFetchScheduler({
     }
   }
 
-  function stop() {
+  function stop(): void {
     if (timer) {
       clearInterval(timer);
       timer = null;
@@ -571,8 +629,3 @@ function createPrFetchScheduler({
 
   return { start, stop };
 }
-
-module.exports = {
-  createPrFetchScheduler,
-  getTodayAnalysisDir,
-};

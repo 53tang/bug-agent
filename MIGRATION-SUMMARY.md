@@ -1,25 +1,31 @@
 # PR Analysis Migration Summary
 
 ## Overview
+
 Successfully reorganized PR analysis files to separate PRs with bugs from those without bugs.
 
 ## Changes Made
 
 ### 1. Updated Save Logic
+
 **Files Modified:**
+
 - `bug-agent.js` - Lines 560-640
 - `prScheduler.js` - Lines 27-30, 117-133, 400-430
 
 **Key Changes:**
+
 - Modified `getTodayAnalysisDir()` function to accept an optional `hasBugs` parameter
 - Updated save logic to automatically determine if a PR has bugs based on `analysis.structured.bugs` array
 - PRs with bugs are saved to: `pr-analysis/with-bugs/YYYY-MM-DD/`
 - PRs without bugs are saved to: `pr-analysis/without-bugs/YYYY-MM-DD/`
 
 ### 2. Migration Script
+
 **Created:** `migrate-pr-analysis.js`
 
 **Features:**
+
 - Reads all existing PR analysis files from date-based folders
 - Determines bug status by checking `analysis.bugs` or `analysis.structured.bugs` arrays
 - Moves files to appropriate categorized directories
@@ -31,6 +37,7 @@ Successfully reorganized PR analysis files to separate PRs with bugs from those 
 **Total Files Migrated:** 48 files across 4 date folders
 
 **Breakdown:**
+
 - **With Bugs:** 35 files (73%)
   - 2026-02-02: 11 files
   - 2026-02-03: 9 files
@@ -79,6 +86,7 @@ pr-analysis/
 ## Testing
 
 All tests passed successfully:
+
 - ✅ PR with bugs → correctly saved to `with-bugs/`
 - ✅ PR without bugs → correctly saved to `without-bugs/`
 - ✅ PR with parse error → correctly saved to `without-bugs/`
@@ -86,14 +94,17 @@ All tests passed successfully:
 ## Usage
 
 ### Running the Migration (if needed again)
+
 ```bash
 node migrate-pr-analysis.js
 ```
 
 ### New PR Analysis
+
 New PRs will automatically be saved to the correct categorized directory based on whether bugs are found.
 
 ### Querying Results
+
 ```bash
 # Find all PRs with bugs
 ls pr-analysis/with-bugs/*/
@@ -113,4 +124,3 @@ find pr-analysis/without-bugs -name "pr-*.json" | wc -l
 - Old date-based folders have been removed after successful migration
 - The `.latest-timestamp` file remains in the `pr-analysis/` root directory
 - The `isPrAnalyzedToday()` function now checks both `with-bugs` and `without-bugs` directories to prevent duplicate analyses
-

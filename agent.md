@@ -3,10 +3,12 @@
 Express service that analyzes Bitbucket PR diffs and posts a summary comment. It also runs a scheduler that fetches today's PRs from a workspace every 10 minutes (UTC day window) and logs the count.
 
 ## Requirements
+
 - Node.js >= 18
 - pnpm
 
 ## Env
+
 - PORT (optional, default 3000)
 - BITBUCKET_EMAIL
 - BITBUCKET_API_TOKEN
@@ -16,6 +18,7 @@ Express service that analyzes Bitbucket PR diffs and posts a summary comment. It
 - MOON_SHOT_KEY
 
 ## Run
+
 pnpm start
 
 Health check:

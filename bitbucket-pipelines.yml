@@ -1,0 +1,32 @@
+image: oven/bun:1
+
+pipelines:
+  default:
+    - parallel:
+        - step:
+            name: Lint
+            caches:
+              - bun
+            script:
+              - bun install --frozen-lockfile
+              - bun run lint
+
+        - step:
+            name: Format Check
+            caches:
+              - bun
+            script:
+              - bun install --frozen-lockfile
+              - bun run format:check
+
+        - step:
+            name: Type Check
+            caches:
+              - bun
+            script:
+              - bun install --frozen-lockfile
+              - bun run typecheck
+
+definitions:
+  caches:
+    bun: ~/.bun/install/cache

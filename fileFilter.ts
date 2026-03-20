@@ -1,16 +1,32 @@
-const fs = require("fs");
-const path = require("path");
-const yaml = require("js-yaml");
-const { minimatch } = require("minimatch");
+import fs from 'node:fs';
+import path from 'node:path';
+import yaml from 'js-yaml';
+import { minimatch } from 'minimatch';
+import { fileURLToPath } from 'node:url';
 
-let filterConfig = null;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function loadFilterConfig() {
+interface SizeRules {
+  hard_exclude_bytes: number;
+  soft_exclude_bytes: number;
+  always_include_exts_even_if_large: string[];
+}
+
+interface FilterConfig {
+  exclude_paths: string[];
+  exclude_exts: string[];
+  exclude_files: string[];
+  size_rules: SizeRules;
+}
+
+let filterConfig: FilterConfig | null = null;
+
+export function loadFilterConfig(): FilterConfig {
   if (filterConfig) {
     return filterConfig;
   }
 
-  const configPath = path.join(__dirname, "file-filter.yaml");
+  const configPath = path.join(__dirname, 'file-filter.yaml');
 
   if (!fs.existsSync(configPath)) {
     console.warn(`File filter config not found at ${configPath}, using defaults`);
@@ -28,13 +44,13 @@ function loadFilterConfig() {
   }
 
   try {
-    const fileContent = fs.readFileSync(configPath, "utf8");
-    const parsed = yaml.load(fileContent);
-    filterConfig = parsed.bug_agent_file_filter || parsed;
-    console.log("Loaded file filter configuration");
+    const fileContent = fs.readFileSync(configPath, 'utf8');
+    const parsed = yaml.load(fileContent) as Record<string, unknown>;
+    filterConfig = (parsed.bug_agent_file_filter || parsed) as FilterConfig;
+    console.log('Loaded file filter configuration');
     return filterConfig;
   } catch (error) {
-    console.error("Error loading file filter config:", error.message);
+    console.error('Error loading file filter config:', (error as Error).message);
     filterConfig = {
       exclude_paths: [],
       exclude_exts: [],
@@ -49,12 +65,12 @@ function loadFilterConfig() {
   }
 }
 
-function getFileExtension(filePath) {
+function getFileExtension(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
-  return ext || "";
+  return ext || '';
 }
 
-function matchesGlob(filePath, patterns) {
+function matchesGlob(filePath: string, patterns: string[]): boolean {
   if (!patterns || patterns.length === 0) {
     return false;
   }
@@ -62,14 +78,14 @@ function matchesGlob(filePath, patterns) {
   return patterns.some((pattern) => minimatch(filePath, pattern));
 }
 
-function estimateFileSizeFromDiff(diffContent) {
-  const lines = diffContent.split("\n");
+function estimateFileSizeFromDiff(diffContent: string): number {
+  const lines = diffContent.split('\n');
   let lineCount = 0;
 
   for (const line of lines) {
-    if (line.startsWith("+") && !line.startsWith("+++")) {
+    if (line.startsWith('+') && !line.startsWith('+++')) {
       lineCount++;
-    } else if (line.startsWith("-") && !line.startsWith("---")) {
+    } else if (line.startsWith('-') && !line.startsWith('---')) {
       lineCount++;
     }
   }
@@ -77,9 +93,9 @@ function estimateFileSizeFromDiff(diffContent) {
   return lineCount * 50;
 }
 
-function shouldIncludeFile(filePath, diffContent = null) {
+export function shouldIncludeFile(filePath: string, diffContent: string | null = null): boolean {
   const config = loadFilterConfig();
-  const normalizedPath = filePath.replace(/\\/g, "/");
+  const normalizedPath = filePath.replace(/\\/g, '/');
 
   if (config.exclude_paths && matchesGlob(normalizedPath, config.exclude_paths)) {
     return false;
@@ -98,8 +114,7 @@ function shouldIncludeFile(filePath, diffContent = null) {
     const fileSize = estimateFileSizeFromDiff(diffContent);
     const hardLimit = config.size_rules.hard_exclude_bytes || 2097152;
     const softLimit = config.size_rules.soft_exclude_bytes || 307200;
-    const alwaysIncludeExts =
-      config.size_rules.always_include_exts_even_if_large || [];
+    const alwaysIncludeExts = config.size_rules.always_include_exts_even_if_large || [];
 
     if (alwaysIncludeExts.includes(ext)) {
       return true;
@@ -116,8 +131,3 @@ function shouldIncludeFile(filePath, diffContent = null) {
 
   return true;
 }
-
-module.exports = {
-  loadFilterConfig,
-  shouldIncludeFile,
-};

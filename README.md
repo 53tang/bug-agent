@@ -1,12 +1,14 @@
 ﻿# Bug Agent (Minimal)
 
 Single-file script that:
-1) Fetches a Bitbucket PR diff
-2) Detects parameter/functional changes
-3) Fetches full file content once per file
-4) Builds a change list and asks an LLM to find bugs
+
+1. Fetches a Bitbucket PR diff
+2. Detects parameter/functional changes
+3. Fetches full file content once per file
+4. Builds a change list and asks an LLM to find bugs
 
 ## Requirements
+
 - Node.js >= 18
 - pnpm
 
