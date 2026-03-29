@@ -1,8 +1,8 @@
 import { getAuthHeader, isIgnoredRepo } from '../../config';
 import { parsePrUrl, fetchJson, fetchText } from '../../bitbucket';
 import { splitDiffByFile, type FileDiff } from '../../diff';
-import { computeRelatedPrDiffGaps } from '../../utils';
-import type { RelatedPrDiffGaps } from '../types';
+import { computeRelatedPrDiffGaps, checkAdbHeaders, checkUnusedDeps } from '../../utils';
+import type { RelatedPrDiffGaps, AdbHeaderCheckResult, UnusedDepsCheckResult } from '../types';
 
 export interface FetchPrResult {
   authHeader: string;
@@ -14,6 +14,8 @@ export interface FetchPrResult {
   diffText: string;
   fileDiffs: FileDiff[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
+  adbHeaderCheck: AdbHeaderCheckResult;
+  unusedDepsCheck: UnusedDepsCheckResult;
 }
 
 export async function fetchPrData(prUrl: string): Promise<FetchPrResult | null> {
@@ -42,6 +44,8 @@ export async function fetchPrData(prUrl: string): Promise<FetchPrResult | null> 
 
   const diffText = (await fetchText(diffUrl, authHeader))!;
   const fileDiffs = splitDiffByFile(diffText);
+
+  // do all kinds of checks
   const relatedPrDiffGaps = await computeRelatedPrDiffGaps({
     pr,
     repoFullName,
@@ -50,6 +54,8 @@ export async function fetchPrData(prUrl: string): Promise<FetchPrResult | null> 
     diffText,
     authHeader,
   });
+  const adbHeaderCheck = checkAdbHeaders(fileDiffs);
+  const unusedDepsCheck = checkUnusedDeps(fileDiffs);
 
-  return { authHeader, repoFullName, prId, pr, commitHash, diffText, fileDiffs, relatedPrDiffGaps };
+  return { authHeader, repoFullName, prId, pr, commitHash, diffText, fileDiffs, relatedPrDiffGaps, adbHeaderCheck, unusedDepsCheck };
 }

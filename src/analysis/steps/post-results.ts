@@ -10,8 +10,8 @@ import {
   renderMarkdownFromStructured,
   type Structured,
 } from '../../render';
-import { sendWeChatWebhook, renderRelatedPrDiffGaps } from '../../utils';
-import type { RelatedPrDiffGaps } from '../types';
+import { sendWeChatWebhook, renderRelatedPrDiffGaps, renderAdbHeaderCheck, renderUnusedDepsCheck } from '../../utils';
+import type { RelatedPrDiffGaps, AdbHeaderCheckResult, UnusedDepsCheckResult } from '../types';
 
 function getPrAuthor(pr: Record<string, unknown>): string {
   const author = pr.author as Record<string, string> | undefined;
@@ -30,6 +30,8 @@ export async function saveAndNotifyQuotaExceeded({
   changeListForSave,
   excludedFiles,
   relatedPrDiffGaps,
+  adbHeaderCheck,
+  unusedDepsCheck,
   analysis,
   includedFileCount,
 }: {
@@ -40,6 +42,8 @@ export async function saveAndNotifyQuotaExceeded({
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
+  adbHeaderCheck: AdbHeaderCheckResult;
+  unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
   includedFileCount: number;
 }): Promise<void> {
@@ -69,6 +73,8 @@ export async function saveAndNotifyQuotaExceeded({
       changeList: changeListForSave,
       excludedFiles,
       relatedPrDiffGaps,
+      adbHeaderCheck,
+      unusedDepsCheck,
       tokenUsage: analysis.tokenUsage ?? [],
       analysis: {
         summary: isInputRateLimit
@@ -110,6 +116,8 @@ export async function saveResultsAndPostComment({
   changeListForSave,
   excludedFiles,
   relatedPrDiffGaps,
+  adbHeaderCheck,
+  unusedDepsCheck,
   analysis,
 }: {
   prId: number;
@@ -119,6 +127,8 @@ export async function saveResultsAndPostComment({
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
+  adbHeaderCheck: AdbHeaderCheckResult;
+  unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
 }): Promise<void> {
   try {
@@ -144,6 +154,8 @@ export async function saveResultsAndPostComment({
       changeList: changeListForSave,
       excludedFiles,
       relatedPrDiffGaps,
+      adbHeaderCheck,
+      unusedDepsCheck,
       tokenUsage: analysis.tokenUsage ?? [],
       analysis: analysis.structured || {
         summary: 'Failed to parse LLM JSON output',
@@ -169,7 +181,9 @@ export async function saveResultsAndPostComment({
   const formattedAnalysis = renderMarkdownFromStructured(structured);
   const trimmedAnalysis = (formattedAnalysis || '').trim();
   const relatedGapsMarkdown = renderRelatedPrDiffGaps(relatedPrDiffGaps);
-  const hasCommentContent = Boolean(trimmedAnalysis) || Boolean(relatedGapsMarkdown);
+  const adbHeaderMarkdown = renderAdbHeaderCheck(adbHeaderCheck);
+  const unusedDepsMarkdown = renderUnusedDepsCheck(unusedDepsCheck);
+  const hasCommentContent = Boolean(trimmedAnalysis) || Boolean(relatedGapsMarkdown) || Boolean(adbHeaderMarkdown) || Boolean(unusedDepsMarkdown);
   const notBugs = Array.isArray(structured.notBugs) ? structured.notBugs : [];
   const hasSpeculative = hasSpeculativeNotBugs(notBugs);
   const speculativeContent = hasSpeculative ? formatSpeculativeNotBugs(notBugs) : '';
@@ -197,8 +211,17 @@ export async function saveResultsAndPostComment({
   if (trimmedAnalysis) {
     commentSections.push(trimmedAnalysis);
   }
+  // related pr diff check
   if (relatedGapsMarkdown) {
     commentSections.push(relatedGapsMarkdown);
+  }
+  // adb customer header check
+  if (adbHeaderMarkdown) {
+    commentSections.push(adbHeaderMarkdown);
+  }
+  // unused third-party dependency check
+  if (unusedDepsMarkdown) {
+    commentSections.push(unusedDepsMarkdown);
   }
 
   const comment = `## Automated Code Review Analysis
