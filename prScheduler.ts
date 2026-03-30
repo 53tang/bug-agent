@@ -15,7 +15,8 @@ const DEFAULT_AUTHOR_UUIDS = [
   '{32c4ef6f-3c67-431b-8fa6-0a4b1c4a77a9}',
   '{8ad2417d-9d07-4e7d-830b-b88fef044fb7}',
 ];
-const IGNORED_REPOS = new Set(['smart_eco-platform/api-integration-aws']);
+// IGNORED_REPOS currently only contains 'test-user/test-repo' as an example. Add any repositories you want to exclude from analysis to this set.
+const IGNORED_REPOS = new Set(['test-user/test-repo']);
 const PR_ANALYSIS_QUEUE_INTERVAL_MS = 2 * 60 * 1000;
 const MAX_DAILY_ANALYSIS_COUNT = 20;
 const RETRY_DELAY_MS = 60 * 1000;
