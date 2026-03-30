@@ -11,13 +11,13 @@ export function renderRelatedPrDiffGaps(relatedPrDiffGaps: RelatedPrDiffGaps | n
     (item) => Array.isArray(item.missingFiles) && item.missingFiles.length > 0,
   );
   if (withMissing.length === 0) return '';
-  const lines = ['### Related PR Diff Gaps'];
+  const lines = ['- ### Related PR Diff Gaps'];
   for (const item of withMissing) {
     const state = String(item.state || '').toUpperCase() || 'UNKNOWN';
     const dest = String(item.destination || 'unknown');
-    lines.push(`- Related PR #${item.id} (${state} -> ${dest}): missing files in current PR`);
+    lines.push(`  - Related PR #${item.id} (${state} -> ${dest}): missing files in current PR`);
     for (const file of item.missingFiles) {
-      lines.push(`  - ${file}`);
+      lines.push(`    - ${file}`);
     }
   }
   return lines.join('\n');

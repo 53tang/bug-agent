@@ -14,6 +14,17 @@ const CUSTOMER_ID_PATTERNS: RegExp[] = [
   /adb[-_]?customer/i,
 ];
 
+const ADB_HEADER_IGNORE_REPO_SUBSTRINGS = [
+  'web-eco-platform',
+  'mcs-application',
+  'web-mcs-application',
+];
+
+function isAdbHeaderIgnoredRepo(repoFullName: string): boolean {
+  const normalizedRepo = String(repoFullName || '').toLowerCase();
+  return ADB_HEADER_IGNORE_REPO_SUBSTRINGS.some((item) => normalizedRepo.includes(item));
+}
+
 function getAddedContent(diff: string): string {
   return diff
     .split('\n')
@@ -33,7 +44,11 @@ function hasCustomerIdPattern(content: string): boolean {
   return CUSTOMER_ID_PATTERNS.some((re) => re.test(content));
 }
 
-export function checkAdbHeaders(fileDiffs: FileDiff[]): AdbHeaderCheckResult {
+export function checkAdbHeaders(fileDiffs: FileDiff[], repoFullName: string): AdbHeaderCheckResult {
+  if (isAdbHeaderIgnoredRepo(repoFullName)) {
+    return { violations: [] };
+  }
+
   const violations: AdbHeaderViolation[] = [];
 
   for (const { filePath, diff } of fileDiffs) {
@@ -52,12 +67,12 @@ export function checkAdbHeaders(fileDiffs: FileDiff[]): AdbHeaderCheckResult {
 export function renderAdbHeaderCheck(result: AdbHeaderCheckResult): string {
   if (!result || result.violations.length === 0) return '';
 
-  const lines = ['### ADB Customer Header Check'];
+  const lines = ['- ### ADB Customer Header Check'];
   lines.push(
-    'The following files add a user ID header but are missing the required ADB customer ID header (`customer-id` / `x-customer-id`):',
+    '  The following files add a user ID header but are missing the required ADB customer ID header (`customer-id` / `x-customer-id`):',
   );
   for (const v of result.violations) {
-    lines.push(`- \`${v.filePath}\` (detected: \`${v.userIdPattern}\`)`);
+    lines.push(`  - \`${v.filePath}\` (detected: \`${v.userIdPattern}\`)`);
   }
   return lines.join('\n');
 }

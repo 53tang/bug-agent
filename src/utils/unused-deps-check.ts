@@ -58,12 +58,12 @@ export function checkUnusedDeps(fileDiffs: FileDiff[]): UnusedDepsCheckResult {
 export function renderUnusedDepsCheck(result: UnusedDepsCheckResult): string {
   if (!result || result.unusedDeps.length === 0) return '';
 
-  const lines = ['### Unused Third-Party Dependency Check'];
+  const lines = ['- ### Unused Third-Party Dependency Check'];
   lines.push(
-    'The following dependencies were added to `package.json` but no import or require was found in the changed files:',
+    '  The following dependencies were added to `package.json` but no import or require was found in the changed files:',
   );
   for (const d of result.unusedDeps) {
-    lines.push(`- \`${d.name}\` (in \`${d.packageJsonPath}\`)`);
+    lines.push(`  - \`${d.name}\` (in \`${d.packageJsonPath}\`)`);
   }
   return lines.join('\n');
 }

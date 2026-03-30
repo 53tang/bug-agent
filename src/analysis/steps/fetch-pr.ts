@@ -54,7 +54,7 @@ export async function fetchPrData(prUrl: string): Promise<FetchPrResult | null> 
     diffText,
     authHeader,
   });
-  const adbHeaderCheck = checkAdbHeaders(fileDiffs);
+  const adbHeaderCheck = checkAdbHeaders(fileDiffs, repoFullName);
   const unusedDepsCheck = checkUnusedDeps(fileDiffs);
 
   return { authHeader, repoFullName, prId, pr, commitHash, diffText, fileDiffs, relatedPrDiffGaps, adbHeaderCheck, unusedDepsCheck };
