@@ -1,5 +1,5 @@
 import { createMoonshotAI } from '@ai-sdk/moonshotai';
-import { generateObject, type LanguageModelUsage } from 'ai';
+import { generateText, Output, type LanguageModelUsage } from 'ai';
 import { getEnv, MOONSHOT_MODEL, MOONSHOT_TEMPERATURE } from '../config';
 import { buildPrompt } from './prompt-builder';
 import { analysisOutputSchema, type AnalysisOutput } from './schema';
@@ -45,11 +45,11 @@ async function attemptMoonshotCall(
   console.log(`[moonshot] Start analysis for ${fileCount} file(s) using ${MOONSHOT_MODEL}`);
   const start = Date.now();
 
-  const { object, usage, finishReason, warnings } = await generateObject({
+  const { output: parsed, usage, finishReason, warnings } = await generateText({
     model: moonshot(MOONSHOT_MODEL),
-    schema: analysisOutputSchema,
     prompt: fullPrompt,
     temperature: MOONSHOT_TEMPERATURE,
+    output: Output.object({ schema: analysisOutputSchema }),
   });
 
   const elapsedMs = Date.now() - start;
@@ -68,10 +68,10 @@ async function attemptMoonshotCall(
     `[moonshot] Tokens (${MOONSHOT_MODEL}): input=${inTok} output=${outTok} total=${totTok}`,
   );
 
-  const rawText = JSON.stringify(object, null, 2);
+  const rawText = JSON.stringify(parsed, null, 2);
   return {
     rawText,
-    structured: object,
+    structured: parsed,
     parseError: null,
     tokenUsage: usageRecord,
   };
