@@ -218,6 +218,14 @@ function resolveIntervalMs(rawIntervalMs: string | number | undefined | null): n
   return value;
 }
 
+/** e.g. `10 min 0 s`, `2 min 30 s`. */
+function formatIntervalDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min} min ${sec} s`;
+}
+
 function normalizeUuid(raw: string): string {
   const cleaned = String(raw).trim().replace(/^"|"$/g, '');
   if (!cleaned) return '';
@@ -414,7 +422,9 @@ class PrAnalysisQueue {
     if (this.timer) {
       return;
     }
-    this.logger.log(`[queue] Starting PR analysis queue (processing every 2 minutes)`);
+    this.logger.log(
+      `[queue] Starting PR analysis queue (processing every ${formatIntervalDuration(PR_ANALYSIS_QUEUE_INTERVAL_MS)})`,
+    );
     this.timer = setInterval(() => this.processNext(), PR_ANALYSIS_QUEUE_INTERVAL_MS);
     if (typeof this.timer.unref === 'function') {
       this.timer.unref();
@@ -612,8 +622,7 @@ export function createPrFetchScheduler({
   }
 
   function start(): void {
-    const intervalMinutes = Math.round(resolvedIntervalMs / 60000);
-    logger.log(`[schedule] Starting PR fetch every ${intervalMinutes} min(s)`);
+    logger.log(`[schedule] Starting PR fetch every ${formatIntervalDuration(resolvedIntervalMs)}`);
     analysisQueue.start();
     run();
     timer = setInterval(run, resolvedIntervalMs);
