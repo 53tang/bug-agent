@@ -6,21 +6,34 @@ import { runLlmAnalysis } from './steps/run-llm';
 import { saveAndNotifyQuotaExceeded, saveResultsAndPostComment } from './steps/post-results';
 import type { AnalysisResult } from './types';
 
+type AnalysisResultBody = Omit<AnalysisResult, 'durationMs'>;
+
+function withDuration(result: AnalysisResultBody, startMs: number): AnalysisResult {
+  const durationMs = Date.now() - startMs;
+  console.log(`[analyze] PR #${result.prId} completed in ${durationMs}ms`);
+  return { ...result, durationMs };
+}
+
 export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
+  const analysisStartMs = Date.now();
+
   // 1. Fetch PR data
   const prData = await fetchPrData(prUrl);
 
   if (!prData) {
     const match = prUrl.match(/pull-requests\/(\d+)/);
     const prId = match ? Number(match[1]) : 0;
-    return {
-      success: true,
-      skipped: true,
-      reason: 'ignored_repo',
-      prId,
-      repoFullName: '',
-      prTitle: '',
-    };
+    return withDuration(
+      {
+        success: true,
+        skipped: true,
+        reason: 'ignored_repo',
+        prId,
+        repoFullName: '',
+        prTitle: '',
+      },
+      analysisStartMs,
+    );
   }
 
   // 2. If PR data is found, process it
@@ -32,15 +45,18 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
 
   if (includedFileDiffs.length === 0) {
     console.log('[analyze] No files to analyze after filtering');
-    return {
-      success: true,
-      message: 'No files to analyze after filtering.',
-      bugs: [],
-      prId,
-      repoFullName,
-      prTitle,
-      relatedPrDiffGaps,
-    };
+    return withDuration(
+      {
+        success: true,
+        message: 'No files to analyze after filtering.',
+        bugs: [],
+        prId,
+        repoFullName,
+        prTitle,
+        relatedPrDiffGaps,
+      },
+      analysisStartMs,
+    );
   }
 
   // 4. Check if we should skip full content
@@ -62,15 +78,18 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
 
   if (changeListForSave.length === 0) {
     console.log('[analyze] No files to analyze after filtering');
-    return {
-      success: true,
-      message: 'No files to analyze after filtering.',
-      bugs: [],
-      prId,
-      repoFullName,
-      prTitle,
-      relatedPrDiffGaps,
-    };
+    return withDuration(
+      {
+        success: true,
+        message: 'No files to analyze after filtering.',
+        bugs: [],
+        prId,
+        repoFullName,
+        prTitle,
+        relatedPrDiffGaps,
+      },
+      analysisStartMs,
+    );
   }
 
   // 6. rate limit check
@@ -98,8 +117,9 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
       unusedDepsCheck,
       analysis,
       includedFileCount: includedFileDiffs.length,
+      analysisStartMs,
     });
-    return { success: false, quotaExceeded: true, prId, repoFullName, prTitle };
+    return withDuration({ success: false, quotaExceeded: true, prId, repoFullName, prTitle }, analysisStartMs);
   }
 
   // 9. Save results and post comment
@@ -114,7 +134,8 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
     adbHeaderCheck,
     unusedDepsCheck,
     analysis,
+    analysisStartMs,
   });
 
-  return { success: true, analysis, prId, repoFullName, prTitle };
+  return withDuration({ success: true, analysis, prId, repoFullName, prTitle }, analysisStartMs);
 }

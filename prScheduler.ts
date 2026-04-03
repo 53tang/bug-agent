@@ -456,6 +456,7 @@ async function analyzeWithRetry(
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+    const attemptStartMs = Date.now();
     try {
       logger.log(`[retry] Analyzing PR (attempt ${attempt}/${MAX_RETRY_ATTEMPTS})`);
       await analyzePR(prUrl);
@@ -485,6 +486,7 @@ async function analyzeWithRetry(
             repoFullName: prData.source?.repository?.full_name || 'unknown',
             prTitle: prData.title || 'unknown',
             timestamp: new Date().toISOString(),
+            durationMs: Date.now() - attemptStartMs,
             error: 'Rate limit reached',
             errorMessage: (error as Error).message,
             analysis: {

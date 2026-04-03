@@ -40,6 +40,7 @@ export function saveQuotaExceededResult({
   unusedDepsCheck,
   analysis,
   includedFileCount,
+  analysisStartMs,
 }: {
   prId: number;
   repoFullName: string;
@@ -52,14 +53,17 @@ export function saveQuotaExceededResult({
   unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
   includedFileCount: number;
+  analysisStartMs: number;
 }): void {
   const isInputRateLimit = analysis.parseError === 'input_rate_limit';
+  const durationMs = Date.now() - analysisStartMs;
   try {
     writeJsonFile(getTodayAnalysisDir(false), prId, {
       prId,
       repoFullName,
       prTitle: pr.title,
       timestamp: new Date().toISOString(),
+      durationMs,
       error: isInputRateLimit
         ? `Input rate limit: ${includedFileCount} files`
         : 'Rate limit exceeded',
@@ -76,7 +80,7 @@ export function saveQuotaExceededResult({
         notBugs: [],
       },
     });
-    console.log(`Saved partial analysis results for PR #${prId}`);
+    console.log(`Saved partial analysis results for PR #${prId} (${durationMs}ms)`);
   } catch (saveError) {
     console.error('Failed to save partial analysis results:', (saveError as Error).message);
   }
@@ -93,6 +97,7 @@ export function saveAnalysisResult({
   adbHeaderCheck,
   unusedDepsCheck,
   analysis,
+  analysisStartMs,
 }: {
   prId: number;
   repoFullName: string;
@@ -104,15 +109,18 @@ export function saveAnalysisResult({
   adbHeaderCheck: AdbHeaderCheckResult;
   unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
+  analysisStartMs: number;
 }): boolean {
   const bugsArray = (analysis.structured as { bugs?: unknown[] } | null)?.bugs || [];
   const hasBugs = Array.isArray(bugsArray) && bugsArray.length > 0;
+  const durationMs = Date.now() - analysisStartMs;
   try {
     writeJsonFile(getTodayAnalysisDir(hasBugs), prId, {
       prId,
       repoFullName,
       prTitle: pr.title,
       timestamp: new Date().toISOString(),
+      durationMs,
       filterStats,
       changeList: changeListForSave,
       excludedFiles,
@@ -126,7 +134,7 @@ export function saveAnalysisResult({
       },
     });
     console.log(
-      `Saved analysis results for PR #${prId} (${hasBugs ? 'with-bugs' : 'without-bugs'})`,
+      `Saved analysis results for PR #${prId} (${hasBugs ? 'with-bugs' : 'without-bugs'}, ${durationMs}ms)`,
     );
   } catch (saveError) {
     console.error('Failed to save analysis results:', (saveError as Error).message);

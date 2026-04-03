@@ -50,4 +50,6 @@ export interface AnalysisResult {
   repoFullName: string;
   prTitle: string;
   relatedPrDiffGaps?: RelatedPrDiffGaps;
+  /** Wall-clock milliseconds for the full `analyzePR` call (including post-save work). */
+  durationMs: number;
 }

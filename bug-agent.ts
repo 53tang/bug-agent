@@ -37,7 +37,7 @@ app.post('/analyze', async (req: Request, res: Response) => {
       const result = await analyzePR(prUrl);
       console.log('\n=== Analysis Complete ===');
       console.log(`PR #${result.prId}: ${result.prTitle}`);
-      console.log('Analysis completed');
+      console.log(`Duration: ${result.durationMs}ms`);
     } catch (error) {
       console.error('\n=== Analysis Failed ===');
       console.error('Error:', (error as Error).message);

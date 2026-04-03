@@ -28,6 +28,7 @@ export async function saveAndNotifyQuotaExceeded({
   unusedDepsCheck,
   analysis,
   includedFileCount,
+  analysisStartMs,
 }: {
   prId: number;
   repoFullName: string;
@@ -40,6 +41,7 @@ export async function saveAndNotifyQuotaExceeded({
   unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
   includedFileCount: number;
+  analysisStartMs: number;
 }): Promise<void> {
   const isInputRateLimit = analysis.parseError === 'input_rate_limit';
   console.warn(
@@ -58,6 +60,7 @@ export async function saveAndNotifyQuotaExceeded({
     unusedDepsCheck,
     analysis,
     includedFileCount,
+    analysisStartMs,
   });
 
   await notifyAutomatedChecks(
@@ -97,6 +100,7 @@ export async function saveResultsAndPostComment({
   adbHeaderCheck,
   unusedDepsCheck,
   analysis,
+  analysisStartMs,
 }: {
   prId: number;
   repoFullName: string;
@@ -108,6 +112,7 @@ export async function saveResultsAndPostComment({
   adbHeaderCheck: AdbHeaderCheckResult;
   unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
+  analysisStartMs: number;
 }): Promise<void> {
   saveAnalysisResult({
     prId,
@@ -120,6 +125,7 @@ export async function saveResultsAndPostComment({
     adbHeaderCheck,
     unusedDepsCheck,
     analysis,
+    analysisStartMs,
   });
 
   if (!analysis.structured) {
