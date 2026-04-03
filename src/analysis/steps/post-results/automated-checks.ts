@@ -1,7 +1,7 @@
 import { COMMENT_AUTHOR_UUID } from '../../../config';
 import { postPRComment } from '../../../bitbucket';
 import { sendWeChatAutomatedChecksWebhook, buildAutomatedChecksComment } from '../../../utils';
-import type { RelatedPrDiffGaps, AdbHeaderCheckResult, UnusedDepsCheckResult } from '../../types';
+import type { RelatedPrDiffGaps, UnusedDepsCheckResult } from '../../types';
 
 export function getPrAuthor(pr: Record<string, unknown>): string {
   const author = pr.author as Record<string, string> | undefined;
@@ -22,10 +22,9 @@ export async function notifyAutomatedChecks(
   prId: number,
   pr: Record<string, unknown>,
   relatedPrDiffGaps: RelatedPrDiffGaps,
-  adbHeaderCheck: AdbHeaderCheckResult,
   unusedDepsCheck: UnusedDepsCheckResult,
 ): Promise<void> {
-  const markdown = buildAutomatedChecksComment(relatedPrDiffGaps, adbHeaderCheck, unusedDepsCheck);
+  const markdown = buildAutomatedChecksComment(relatedPrDiffGaps, unusedDepsCheck);
   if (!markdown) return;
 
   if (canPostPrComments(pr)) {

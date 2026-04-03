@@ -1,14 +1,5 @@
 import type { MoonshotResult } from '../moonshot';
 
-export interface AdbHeaderViolation {
-  filePath: string;
-  userIdPattern: string;
-}
-
-export interface AdbHeaderCheckResult {
-  violations: AdbHeaderViolation[];
-}
-
 export interface UnusedDepViolation {
   name: string;
   packageJsonPath: string;

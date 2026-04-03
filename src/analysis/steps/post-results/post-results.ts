@@ -7,7 +7,7 @@ import {
   type Structured,
 } from '../../../render';
 import { sendWeChatWebhook } from '../../../utils';
-import type { RelatedPrDiffGaps, AdbHeaderCheckResult, UnusedDepsCheckResult } from '../../types';
+import type { RelatedPrDiffGaps, UnusedDepsCheckResult } from '../../types';
 import {
   getPrAuthor,
   buildPrWebhookUrl,
@@ -24,7 +24,6 @@ export async function saveAndNotifyQuotaExceeded({
   changeListForSave,
   excludedFiles,
   relatedPrDiffGaps,
-  adbHeaderCheck,
   unusedDepsCheck,
   analysis,
   includedFileCount,
@@ -37,7 +36,6 @@ export async function saveAndNotifyQuotaExceeded({
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
-  adbHeaderCheck: AdbHeaderCheckResult;
   unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
   includedFileCount: number;
@@ -56,7 +54,6 @@ export async function saveAndNotifyQuotaExceeded({
     changeListForSave,
     excludedFiles,
     relatedPrDiffGaps,
-    adbHeaderCheck,
     unusedDepsCheck,
     analysis,
     includedFileCount,
@@ -68,7 +65,6 @@ export async function saveAndNotifyQuotaExceeded({
     prId,
     pr,
     relatedPrDiffGaps,
-    adbHeaderCheck,
     unusedDepsCheck,
   );
 
@@ -97,7 +93,6 @@ export async function saveResultsAndPostComment({
   changeListForSave,
   excludedFiles,
   relatedPrDiffGaps,
-  adbHeaderCheck,
   unusedDepsCheck,
   analysis,
   analysisStartMs,
@@ -109,7 +104,6 @@ export async function saveResultsAndPostComment({
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
-  adbHeaderCheck: AdbHeaderCheckResult;
   unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
   analysisStartMs: number;
@@ -122,7 +116,6 @@ export async function saveResultsAndPostComment({
     changeListForSave,
     excludedFiles,
     relatedPrDiffGaps,
-    adbHeaderCheck,
     unusedDepsCheck,
     analysis,
     analysisStartMs,
@@ -135,7 +128,6 @@ export async function saveResultsAndPostComment({
       prId,
       pr,
       relatedPrDiffGaps,
-      adbHeaderCheck,
       unusedDepsCheck,
     );
     return;
@@ -177,7 +169,6 @@ export async function saveResultsAndPostComment({
     prId,
     pr,
     relatedPrDiffGaps,
-    adbHeaderCheck,
     unusedDepsCheck,
   );
 

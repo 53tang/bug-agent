@@ -37,7 +37,7 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
   }
 
   // 2. If PR data is found, process it
-  const { authHeader, repoFullName, prId, pr, commitHash, fileDiffs, relatedPrDiffGaps, adbHeaderCheck, unusedDepsCheck } = prData;
+  const { authHeader, repoFullName, prId, pr, commitHash, fileDiffs, relatedPrDiffGaps, unusedDepsCheck } = prData;
   const prTitle = pr.title as string;
 
   // 3. Filter diff files
@@ -113,7 +113,6 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
       changeListForSave,
       excludedFiles,
       relatedPrDiffGaps,
-      adbHeaderCheck,
       unusedDepsCheck,
       analysis,
       includedFileCount: includedFileDiffs.length,
@@ -131,7 +130,6 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
     changeListForSave,
     excludedFiles,
     relatedPrDiffGaps,
-    adbHeaderCheck,
     unusedDepsCheck,
     analysis,
     analysisStartMs,

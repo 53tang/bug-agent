@@ -3,17 +3,15 @@ import path from 'node:path';
 import { getTodayAnalysisDir } from '../../../../prScheduler';
 import type { MoonshotResult } from '../../../moonshot';
 import { buildSparseCheck } from '../../../utils';
-import type { RelatedPrDiffGaps, AdbHeaderCheckResult, UnusedDepsCheckResult } from '../../types';
+import type { RelatedPrDiffGaps, UnusedDepsCheckResult } from '../../types';
 
 function savedAnalysisCheckPayload(
   relatedPrDiffGaps: RelatedPrDiffGaps,
-  adbHeaderCheck: AdbHeaderCheckResult,
   unusedDepsCheck: UnusedDepsCheckResult,
 ) {
-  const sparseCheck = buildSparseCheck(relatedPrDiffGaps, adbHeaderCheck, unusedDepsCheck);
+  const sparseCheck = buildSparseCheck(relatedPrDiffGaps, unusedDepsCheck);
   return {
     relatedPrDiffGaps,
-    adbHeaderCheck,
     unusedDepsCheck,
     ...(sparseCheck ? { check: sparseCheck } : {}),
   };
@@ -36,7 +34,6 @@ export function saveQuotaExceededResult({
   changeListForSave,
   excludedFiles,
   relatedPrDiffGaps,
-  adbHeaderCheck,
   unusedDepsCheck,
   analysis,
   includedFileCount,
@@ -49,7 +46,6 @@ export function saveQuotaExceededResult({
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
-  adbHeaderCheck: AdbHeaderCheckResult;
   unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
   includedFileCount: number;
@@ -70,7 +66,7 @@ export function saveQuotaExceededResult({
       filterStats,
       changeList: changeListForSave,
       excludedFiles,
-      ...savedAnalysisCheckPayload(relatedPrDiffGaps, adbHeaderCheck, unusedDepsCheck),
+      ...savedAnalysisCheckPayload(relatedPrDiffGaps, unusedDepsCheck),
       tokenUsage: analysis.tokenUsage ?? [],
       analysis: {
         summary: isInputRateLimit
@@ -94,7 +90,6 @@ export function saveAnalysisResult({
   changeListForSave,
   excludedFiles,
   relatedPrDiffGaps,
-  adbHeaderCheck,
   unusedDepsCheck,
   analysis,
   analysisStartMs,
@@ -106,7 +101,6 @@ export function saveAnalysisResult({
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
-  adbHeaderCheck: AdbHeaderCheckResult;
   unusedDepsCheck: UnusedDepsCheckResult;
   analysis: MoonshotResult;
   analysisStartMs: number;
@@ -124,7 +118,7 @@ export function saveAnalysisResult({
       filterStats,
       changeList: changeListForSave,
       excludedFiles,
-      ...savedAnalysisCheckPayload(relatedPrDiffGaps, adbHeaderCheck, unusedDepsCheck),
+      ...savedAnalysisCheckPayload(relatedPrDiffGaps, unusedDepsCheck),
       tokenUsage: analysis.tokenUsage ?? [],
       analysis: analysis.structured || {
         summary: 'Failed to parse LLM JSON output',
