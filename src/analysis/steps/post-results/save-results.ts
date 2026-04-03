@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getTodayAnalysisDir } from '../../../../prScheduler';
+import { getTodayAnalysisDir } from '../../../scheduler/analysis-state';
 import type { MoonshotResult } from '../../../moonshot';
 import { buildSparseCheck } from '../../../utils';
 import type { RelatedPrDiffGaps, UnusedDepsCheckResult } from '../../types';
@@ -30,6 +30,7 @@ export function saveQuotaExceededResult({
   prId,
   repoFullName,
   pr,
+  commitHash,
   filterStats,
   changeListForSave,
   excludedFiles,
@@ -42,6 +43,7 @@ export function saveQuotaExceededResult({
   prId: number;
   repoFullName: string;
   pr: Record<string, unknown>;
+  commitHash: string;
   filterStats: { total: number; included: number; excluded: number };
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
@@ -58,6 +60,7 @@ export function saveQuotaExceededResult({
       prId,
       repoFullName,
       prTitle: pr.title,
+      commitHash,
       timestamp: new Date().toISOString(),
       durationMs,
       error: isInputRateLimit
@@ -86,6 +89,7 @@ export function saveAnalysisResult({
   prId,
   repoFullName,
   pr,
+  commitHash,
   filterStats,
   changeListForSave,
   excludedFiles,
@@ -97,6 +101,7 @@ export function saveAnalysisResult({
   prId: number;
   repoFullName: string;
   pr: Record<string, unknown>;
+  commitHash: string;
   filterStats: { total: number; included: number; excluded: number };
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
@@ -113,6 +118,7 @@ export function saveAnalysisResult({
       prId,
       repoFullName,
       prTitle: pr.title,
+      commitHash,
       timestamp: new Date().toISOString(),
       durationMs,
       filterStats,

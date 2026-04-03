@@ -20,6 +20,7 @@ export async function saveAndNotifyQuotaExceeded({
   prId,
   repoFullName,
   pr,
+  commitHash,
   filterStats,
   changeListForSave,
   excludedFiles,
@@ -32,6 +33,7 @@ export async function saveAndNotifyQuotaExceeded({
   prId: number;
   repoFullName: string;
   pr: Record<string, unknown>;
+  commitHash: string;
   filterStats: { total: number; included: number; excluded: number };
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
@@ -50,6 +52,7 @@ export async function saveAndNotifyQuotaExceeded({
     prId,
     repoFullName,
     pr,
+    commitHash,
     filterStats,
     changeListForSave,
     excludedFiles,
@@ -89,6 +92,7 @@ export async function saveResultsAndPostComment({
   prId,
   repoFullName,
   pr,
+  commitHash,
   filterStats,
   changeListForSave,
   excludedFiles,
@@ -100,6 +104,7 @@ export async function saveResultsAndPostComment({
   prId: number;
   repoFullName: string;
   pr: Record<string, unknown>;
+  commitHash: string;
   filterStats: { total: number; included: number; excluded: number };
   changeListForSave: Record<string, unknown>[];
   excludedFiles: string[];
@@ -112,6 +117,7 @@ export async function saveResultsAndPostComment({
     prId,
     repoFullName,
     pr,
+    commitHash,
     filterStats,
     changeListForSave,
     excludedFiles,
