@@ -38,7 +38,17 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
   }
 
   // 2. If PR data is found, process it
-  const { authHeader, repoFullName, prId, pr, commitHash, fileDiffs, relatedPrDiffGaps, unusedDepsCheck } = prData;
+  const {
+    authHeader,
+    repoFullName,
+    prId,
+    pr,
+    commitHash,
+    fileDiffs,
+    relatedPrDiffGaps,
+    unusedDepsCheck,
+    bffRawErrorLeakCheck,
+  } = prData;
   const prTitle = pr.title as string;
 
   // 3. Filter diff files
@@ -135,11 +145,15 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
       excludedFiles,
       relatedPrDiffGaps,
       unusedDepsCheck,
+      bffRawErrorLeakCheck,
       analysis,
       includedFileCount: includedFileDiffs.length,
       analysisStartMs,
     });
-    return withDuration({ success: false, quotaExceeded: true, prId, repoFullName, prTitle }, analysisStartMs);
+    return withDuration(
+      { success: false, quotaExceeded: true, prId, repoFullName, prTitle },
+      analysisStartMs,
+    );
   }
 
   // 10. Save results and post comment
@@ -153,6 +167,7 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
     excludedFiles,
     relatedPrDiffGaps,
     unusedDepsCheck,
+    bffRawErrorLeakCheck,
     analysis,
     analysisStartMs,
   });

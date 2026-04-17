@@ -45,7 +45,12 @@ async function attemptMoonshotCall(
   console.log(`[moonshot] Start analysis for ${fileCount} file(s) using ${MOONSHOT_MODEL}`);
   const start = Date.now();
 
-  const { output: parsed, usage, finishReason, warnings } = await generateText({
+  const {
+    output: parsed,
+    usage,
+    finishReason,
+    warnings,
+  } = await generateText({
     model: moonshot(MOONSHOT_MODEL),
     prompt: fullPrompt,
     temperature: MOONSHOT_TEMPERATURE,

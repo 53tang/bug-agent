@@ -26,9 +26,7 @@ export function createWebSearchTool(tavilyApiKey: string | undefined) {
       'default values, or breaking changes. Do NOT rely on your own knowledge ' +
       'for these — always search first.',
     inputSchema: z.object({
-      query: z
-        .string()
-        .describe('Search query, e.g. "does SST 2.x support nodejs22.x runtime"'),
+      query: z.string().describe('Search query, e.g. "does SST 2.x support nodejs22.x runtime"'),
     }),
     execute: async ({ query }: { query: string }) => {
       if (!tavilyApiKey) {

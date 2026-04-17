@@ -20,16 +20,10 @@ export function createFetchFileTool(ctx: FetchFileContext) {
       'Use this when you need to see the full file to verify a bug — especially ' +
       'when the initial analysis only had truncated or excerpted content.',
     inputSchema: z.object({
-      filePath: z
-        .string()
-        .describe('Repository-relative file path, e.g. "src/utils/api.ts"'),
+      filePath: z.string().describe('Repository-relative file path, e.g. "src/utils/api.ts"'),
     }),
     execute: async ({ filePath }: { filePath: string }) => {
-      const encodedPath = filePath
-        .split('/')
-        .filter(Boolean)
-        .map(encodeURIComponent)
-        .join('/');
+      const encodedPath = filePath.split('/').filter(Boolean).map(encodeURIComponent).join('/');
       const url = `https://api.bitbucket.org/2.0/repositories/${ctx.repoFullName}/src/${ctx.commitHash}/${encodedPath}`;
 
       const res = await fetch(url, {

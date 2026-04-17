@@ -15,7 +15,13 @@ export const MOONSHOT_TEMPERATURE = 1; // only 1 is allowed for kimi-k2.5
 export const COMMENT_AUTHOR_UUID = '{5e1bd749-f9a6-49a1-a580-afadbe72fc5b}';
 
 /** Recheck step: prompt template for verifying bugs with tools. */
-export const RECHECK_PROMPT_PATH = path.join(__dirname, '..', '..', 'prompts', 'recheck-system.txt');
+export const RECHECK_PROMPT_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'prompts',
+  'recheck-system.txt',
+);
 
 /** Max tool-call rounds the recheck agent is allowed. */
 export const RECHECK_MAX_STEPS = 8;

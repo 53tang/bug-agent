@@ -3,16 +3,22 @@ import path from 'node:path';
 import { getTodayAnalysisDir } from '../../../scheduler/analysis-state';
 import type { MoonshotResult } from '../../../moonshot';
 import { buildSparseCheck } from '../../../utils';
-import type { RelatedPrDiffGaps, UnusedDepsCheckResult } from '../../types';
+import type {
+  BffRawErrorLeakCheckResult,
+  RelatedPrDiffGaps,
+  UnusedDepsCheckResult,
+} from '../../types';
 
 function savedAnalysisCheckPayload(
   relatedPrDiffGaps: RelatedPrDiffGaps,
   unusedDepsCheck: UnusedDepsCheckResult,
+  bffRawErrorLeakCheck: BffRawErrorLeakCheckResult,
 ) {
-  const sparseCheck = buildSparseCheck(relatedPrDiffGaps, unusedDepsCheck);
+  const sparseCheck = buildSparseCheck(relatedPrDiffGaps, unusedDepsCheck, bffRawErrorLeakCheck);
   return {
     relatedPrDiffGaps,
     unusedDepsCheck,
+    bffRawErrorLeakCheck,
     ...(sparseCheck ? { check: sparseCheck } : {}),
   };
 }
@@ -36,6 +42,7 @@ export function saveQuotaExceededResult({
   excludedFiles,
   relatedPrDiffGaps,
   unusedDepsCheck,
+  bffRawErrorLeakCheck,
   analysis,
   includedFileCount,
   analysisStartMs,
@@ -49,6 +56,7 @@ export function saveQuotaExceededResult({
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
   unusedDepsCheck: UnusedDepsCheckResult;
+  bffRawErrorLeakCheck: BffRawErrorLeakCheckResult;
   analysis: MoonshotResult;
   includedFileCount: number;
   analysisStartMs: number;
@@ -69,7 +77,7 @@ export function saveQuotaExceededResult({
       filterStats,
       changeList: changeListForSave,
       excludedFiles,
-      ...savedAnalysisCheckPayload(relatedPrDiffGaps, unusedDepsCheck),
+      ...savedAnalysisCheckPayload(relatedPrDiffGaps, unusedDepsCheck, bffRawErrorLeakCheck),
       tokenUsage: analysis.tokenUsage ?? [],
       analysis: {
         summary: isInputRateLimit
@@ -95,6 +103,7 @@ export function saveAnalysisResult({
   excludedFiles,
   relatedPrDiffGaps,
   unusedDepsCheck,
+  bffRawErrorLeakCheck,
   analysis,
   analysisStartMs,
 }: {
@@ -107,6 +116,7 @@ export function saveAnalysisResult({
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
   unusedDepsCheck: UnusedDepsCheckResult;
+  bffRawErrorLeakCheck: BffRawErrorLeakCheckResult;
   analysis: MoonshotResult;
   analysisStartMs: number;
 }): boolean {
@@ -124,7 +134,7 @@ export function saveAnalysisResult({
       filterStats,
       changeList: changeListForSave,
       excludedFiles,
-      ...savedAnalysisCheckPayload(relatedPrDiffGaps, unusedDepsCheck),
+      ...savedAnalysisCheckPayload(relatedPrDiffGaps, unusedDepsCheck, bffRawErrorLeakCheck),
       tokenUsage: analysis.tokenUsage ?? [],
       analysis: analysis.structured || {
         summary: 'Failed to parse LLM JSON output',

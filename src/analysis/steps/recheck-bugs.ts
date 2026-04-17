@@ -65,7 +65,11 @@ function buildRecheckPrompt(analysis: AnalysisOutput, ctx: RecheckContext): stri
     .replace('{{SPECULATIVE_NOT_BUGS}}', formatSpeculativeForPrompt(analysis.notBugs));
 }
 
-function mapUsage(usage: LanguageModelUsage | undefined, model: string, elapsedMs: number): TokenUsage {
+function mapUsage(
+  usage: LanguageModelUsage | undefined,
+  model: string,
+  elapsedMs: number,
+): TokenUsage {
   return {
     model,
     elapsedMs,
@@ -121,7 +125,12 @@ export async function recheckBugs(
   const start = Date.now();
 
   try {
-    const { output: parsed, usage, finishReason, steps } = await generateText({
+    const {
+      output: parsed,
+      usage,
+      finishReason,
+      steps,
+    } = await generateText({
       model: moonshot(MOONSHOT_MODEL),
       prompt,
       temperature: MOONSHOT_TEMPERATURE,

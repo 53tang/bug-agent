@@ -7,14 +7,19 @@ import {
   type Structured,
 } from '../../../render';
 import { sendWeChatWebhook } from '../../../utils';
-import type { RelatedPrDiffGaps, UnusedDepsCheckResult } from '../../types';
-import {
-  getPrAuthor,
-  buildPrWebhookUrl,
-  canPostPrComments,
-  notifyAutomatedChecks,
-} from './automated-checks';
+import type {
+  BffRawErrorLeakCheckResult,
+  RelatedPrDiffGaps,
+  UnusedDepsCheckResult,
+} from '../../types';
+import { getPrAuthor, buildPrWebhookUrl, notifyAutomatedChecks } from './automated-checks';
+import { COMMENT_AUTHOR_UUID } from '../../../config';
 import { saveQuotaExceededResult, saveAnalysisResult } from './save-results';
+
+function canPostPrComments(pr: Record<string, unknown>): boolean {
+  const authorUuid = (pr.author as Record<string, string>)?.uuid || '';
+  return authorUuid === COMMENT_AUTHOR_UUID;
+}
 
 export async function saveAndNotifyQuotaExceeded({
   prId,
@@ -26,6 +31,7 @@ export async function saveAndNotifyQuotaExceeded({
   excludedFiles,
   relatedPrDiffGaps,
   unusedDepsCheck,
+  bffRawErrorLeakCheck,
   analysis,
   includedFileCount,
   analysisStartMs,
@@ -39,6 +45,7 @@ export async function saveAndNotifyQuotaExceeded({
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
   unusedDepsCheck: UnusedDepsCheckResult;
+  bffRawErrorLeakCheck: BffRawErrorLeakCheckResult;
   analysis: MoonshotResult;
   includedFileCount: number;
   analysisStartMs: number;
@@ -58,6 +65,7 @@ export async function saveAndNotifyQuotaExceeded({
     excludedFiles,
     relatedPrDiffGaps,
     unusedDepsCheck,
+    bffRawErrorLeakCheck,
     analysis,
     includedFileCount,
     analysisStartMs,
@@ -69,6 +77,7 @@ export async function saveAndNotifyQuotaExceeded({
     pr,
     relatedPrDiffGaps,
     unusedDepsCheck,
+    bffRawErrorLeakCheck,
   );
 
   try {
@@ -98,6 +107,7 @@ export async function saveResultsAndPostComment({
   excludedFiles,
   relatedPrDiffGaps,
   unusedDepsCheck,
+  bffRawErrorLeakCheck,
   analysis,
   analysisStartMs,
 }: {
@@ -110,6 +120,7 @@ export async function saveResultsAndPostComment({
   excludedFiles: string[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
   unusedDepsCheck: UnusedDepsCheckResult;
+  bffRawErrorLeakCheck: BffRawErrorLeakCheckResult;
   analysis: MoonshotResult;
   analysisStartMs: number;
 }): Promise<void> {
@@ -123,6 +134,7 @@ export async function saveResultsAndPostComment({
     excludedFiles,
     relatedPrDiffGaps,
     unusedDepsCheck,
+    bffRawErrorLeakCheck,
     analysis,
     analysisStartMs,
   });
@@ -135,6 +147,7 @@ export async function saveResultsAndPostComment({
       pr,
       relatedPrDiffGaps,
       unusedDepsCheck,
+      bffRawErrorLeakCheck,
     );
     return;
   }
@@ -176,6 +189,7 @@ export async function saveResultsAndPostComment({
     pr,
     relatedPrDiffGaps,
     unusedDepsCheck,
+    bffRawErrorLeakCheck,
   );
 
   if (shouldSendWebhook) {

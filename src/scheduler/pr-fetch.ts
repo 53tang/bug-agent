@@ -149,9 +149,7 @@ export async function fetchUpdatedPullRequests({
     }
   }
 
-  const filteredPrs = prs.filter(
-    (pr) => new Date(pr.updated_on!) > new Date(lastUpdateTimestamp),
-  );
+  const filteredPrs = prs.filter((pr) => new Date(pr.updated_on!) > new Date(lastUpdateTimestamp));
 
   return { prs: filteredPrs, workspace: resolvedWorkspace };
 }

@@ -1,8 +1,12 @@
 import { getAuthHeader, isIgnoredRepo } from '../../config';
 import { parsePrUrl, fetchJson, fetchText } from '../../bitbucket';
 import { splitDiffByFile, type FileDiff } from '../../diff';
-import { computeRelatedPrDiffGaps, checkUnusedDeps } from '../../utils';
-import type { RelatedPrDiffGaps, UnusedDepsCheckResult } from '../types';
+import { checkBffRawErrorResponses, checkUnusedDeps, computeRelatedPrDiffGaps } from '../../utils';
+import type {
+  BffRawErrorLeakCheckResult,
+  RelatedPrDiffGaps,
+  UnusedDepsCheckResult,
+} from '../types';
 
 export interface FetchPrResult {
   authHeader: string;
@@ -15,6 +19,7 @@ export interface FetchPrResult {
   fileDiffs: FileDiff[];
   relatedPrDiffGaps: RelatedPrDiffGaps;
   unusedDepsCheck: UnusedDepsCheckResult;
+  bffRawErrorLeakCheck: BffRawErrorLeakCheckResult;
 }
 
 export async function fetchPrData(prUrl: string): Promise<FetchPrResult | null> {
@@ -54,6 +59,18 @@ export async function fetchPrData(prUrl: string): Promise<FetchPrResult | null> 
     authHeader,
   });
   const unusedDepsCheck = checkUnusedDeps(fileDiffs);
+  const bffRawErrorLeakCheck = await checkBffRawErrorResponses(fileDiffs);
 
-  return { authHeader, repoFullName, prId, pr, commitHash, diffText, fileDiffs, relatedPrDiffGaps, unusedDepsCheck };
+  return {
+    authHeader,
+    repoFullName,
+    prId,
+    pr,
+    commitHash,
+    diffText,
+    fileDiffs,
+    relatedPrDiffGaps,
+    unusedDepsCheck,
+    bffRawErrorLeakCheck,
+  };
 }

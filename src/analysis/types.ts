@@ -9,6 +9,16 @@ export interface UnusedDepsCheckResult {
   unusedDeps: UnusedDepViolation[];
 }
 
+export interface BffRawErrorLeakViolation {
+  filePath: string;
+  lineContent: string;
+  description?: string;
+}
+
+export interface BffRawErrorLeakCheckResult {
+  violations: BffRawErrorLeakViolation[];
+}
+
 export interface RelatedPrDiffGaps {
   searchedTitle: string;
   matchStrategy: string;

@@ -15,7 +15,7 @@ import type { FetchJsonFn, AnalyzePRFn, Logger } from './src/scheduler/types';
 
 export { getTodayAnalysisDir } from './src/scheduler/analysis-state';
 
-const DEFAULT_FETCH_INTERVAL_MS = 10 * 60 * 1000;
+const DEFAULT_FETCH_INTERVAL_MS = 5 * 60 * 1000;
 
 function resolveIntervalMs(rawIntervalMs: string | number | undefined | null): number {
   if (rawIntervalMs === undefined || rawIntervalMs === null || rawIntervalMs === '') {

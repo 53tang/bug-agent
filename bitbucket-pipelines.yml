@@ -27,6 +27,14 @@ pipelines:
               - bun install --frozen-lockfile
               - bun run typecheck
 
+        - step:
+            name: Test
+            caches:
+              - bun
+            script:
+              - bun install --frozen-lockfile
+              - bun run test
+
 definitions:
   caches:
     bun: ~/.bun/install/cache
