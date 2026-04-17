@@ -3,6 +3,7 @@ import { fetchPrData } from './steps/fetch-pr';
 import { filterDiffFiles } from './steps/filter-files';
 import { buildChangeLists } from './steps/build-change-list';
 import { runLlmAnalysis } from './steps/run-llm';
+import { shouldRecheck, recheckBugs } from './steps/recheck-bugs';
 import { saveAndNotifyQuotaExceeded, saveResultsAndPostComment } from './steps/post-results';
 import type { AnalysisResult } from './types';
 
@@ -103,8 +104,27 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
     skipInputRateLimit,
   );
 
+  // 8. Recheck: verify bugs and investigate speculative items using tools
+  if (analysis.structured && shouldRecheck(analysis.structured)) {
+    const recheckResult = await recheckBugs(analysis.structured, {
+      repoFullName,
+      commitHash,
+      authHeader,
+      prTitle,
+      prId,
+    });
+    if (recheckResult?.structured) {
+      console.log(
+        `[analyze] Recheck refined: ${analysis.structured.bugs.length} → ${recheckResult.structured.bugs.length} bug(s)`,
+      );
+      analysis.structured = recheckResult.structured;
+      analysis.rawText = JSON.stringify(recheckResult.structured, null, 2);
+      analysis.recheckTokenUsage = recheckResult.tokenUsage;
+    }
+  }
+
   if (analysis.quotaExceeded) {
-    // 8. Save and notify quota exceeded
+    // 9. Save and notify quota exceeded
     await saveAndNotifyQuotaExceeded({
       prId,
       repoFullName,
@@ -122,7 +142,7 @@ export async function analyzePR(prUrl: string): Promise<AnalysisResult> {
     return withDuration({ success: false, quotaExceeded: true, prId, repoFullName, prTitle }, analysisStartMs);
   }
 
-  // 9. Save results and post comment
+  // 10. Save results and post comment
   await saveResultsAndPostComment({
     prId,
     repoFullName,

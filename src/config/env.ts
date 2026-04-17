@@ -23,3 +23,8 @@ export function isIgnoredRepo(repoFullName: string): boolean {
 export function shouldSkipInputRateLimit(includedFileCount: number): boolean {
   return includedFileCount > INPUT_RATE_LIMIT_FILE_THRESHOLD;
 }
+
+/** Optional — when set, the recheck step can use web search to verify factual claims. */
+export function getTavilyApiKey(): string | undefined {
+  return process.env.TAVILY_API_KEY || undefined;
+}

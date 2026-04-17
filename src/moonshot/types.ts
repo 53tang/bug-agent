@@ -18,6 +18,8 @@ export interface MoonshotResult {
   parseError: string | null;
   quotaExceeded?: boolean;
   tokenUsage: TokenUsage[];
+  /** Token usage from the recheck step (only present when recheck ran). */
+  recheckTokenUsage?: TokenUsage[];
 }
 
 export interface PromptMeta {
