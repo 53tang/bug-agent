@@ -1,11 +1,6 @@
 import { postPRComment } from '../../../bitbucket';
 import type { MoonshotResult } from '../../../moonshot';
-import {
-  hasSpeculativeNotBugs,
-  formatSpeculativeNotBugs,
-  renderMarkdownFromStructured,
-  type Structured,
-} from '../../../render';
+import { renderMarkdownFromStructured, type Structured } from '../../../render';
 import { sendWeChatWebhook } from '../../../utils';
 import type {
   BffRawErrorLeakCheckResult,
@@ -155,10 +150,7 @@ export async function saveResultsAndPostComment({
   const structured = analysis.structured as unknown as Structured;
   const formattedAnalysis = renderMarkdownFromStructured(structured);
   const trimmedAnalysis = (formattedAnalysis || '').trim();
-  const notBugs = Array.isArray(structured.notBugs) ? structured.notBugs : [];
-  const hasSpeculative = hasSpeculativeNotBugs(notBugs);
-  const speculativeContent = hasSpeculative ? formatSpeculativeNotBugs(notBugs) : '';
-  const shouldSendWebhook = Boolean(trimmedAnalysis) || hasSpeculative;
+  const shouldSendWebhook = Boolean(trimmedAnalysis);
 
   if (trimmedAnalysis) {
     const analysisComment = `## Automated Code Review Analysis\n\n${trimmedAnalysis}\n\n---`;
@@ -199,7 +191,7 @@ export async function saveResultsAndPostComment({
         getPrAuthor(pr),
         repoFullName,
         buildPrWebhookUrl(repoFullName, prId),
-        trimmedAnalysis || speculativeContent,
+        trimmedAnalysis,
       );
     } catch (webhookError) {
       console.error('Failed to send webhook notification:', (webhookError as Error).message);
