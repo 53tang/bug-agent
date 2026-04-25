@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-dotenv.config({ path: '.envrc' });
+dotenv.config();
 import express, { type Request, type Response } from 'express';
 import { createPrFetchScheduler } from './prScheduler';
 import { analyzePR } from './src/analysis';

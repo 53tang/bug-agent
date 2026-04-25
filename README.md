@@ -18,15 +18,15 @@ Single-file script that:
 pnpm install
 ```
 
-Set env vars in `.envrc` (or export in your shell):
+Copy `.env.example` to `.env` and fill in values (or set the same keys in your shell).
 
-- BITBUCKET_EMAIL
-- BITBUCKET_API_TOKEN
-- Optional: BITBUCKET_WORKSPACE (default: smart_eco-platform)
-- Optional: PR_FETCH_INTERVAL_MS (default: 300000 = 5 minutes)
-- Optional: PR_AUTHOR_UUIDS (comma-separated UUIDs; defaults to built-in list)
-- LLM_API_URL
-- Optional: LLM_API_KEY, LLM_MODEL
+- `BITBUCKET_EMAIL`, `BITBUCKET_API_TOKEN` (required for Bitbucket API)
+- `MOON_SHOT_KEY` (required for Kimi / Moonshot analysis)
+- Optional: `BITBUCKET_WORKSPACE` (default: smart_eco-platform)
+- Optional: `PORT` (default: 3000 in code; use `.env` to override, e.g. 3002)
+- Optional: `TAVILY_API_KEY` (web search in recheck step)
+- Optional: `PR_FETCH_INTERVAL_MS` (default: 300000 = 5 minutes)
+- Optional: `PR_AUTHOR_UUIDS` (comma-separated UUIDs; defaults to a built-in list)
 
 ## Run
 
