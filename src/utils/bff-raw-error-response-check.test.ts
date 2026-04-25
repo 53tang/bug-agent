@@ -3,7 +3,7 @@ import type { FileDiff } from '../diff';
 
 // Mock config so getEnv('MOON_SHOT_KEY') does not throw.
 mock.module('../config', () => ({
-  getEnv: mock((_name: string) => 'test-key'),
+  getEnv: mock(() => 'test-key'),
   MOONSHOT_MODEL: 'test-model',
   MOONSHOT_TEMPERATURE: 1,
 }));
