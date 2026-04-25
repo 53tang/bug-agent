@@ -3,7 +3,7 @@ dotenv.config();
 import express, { type Request, type Response } from 'express';
 import { createPrFetchScheduler } from './prScheduler';
 import { analyzePR } from './src/analysis';
-import { getAuthHeader } from './src/config';
+import { DEFAULT_HTTP_PORT, getAuthHeader } from './src/config';
 import { fetchJson } from './src/bitbucket';
 
 const app = express();
@@ -50,12 +50,12 @@ app.post('/analyze', async (req: Request, res: Response) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || DEFAULT_HTTP_PORT;
 const prFetchScheduler = createPrFetchScheduler({
   getAuthHeader,
   fetchJson,
   workspace: process.env.BITBUCKET_WORKSPACE,
-  intervalMs: process.env.PR_FETCH_INTERVAL_MS,
+  rawIntervalMs: process.env.PR_FETCH_INTERVAL_MS,
   authorUuids: process.env.PR_AUTHOR_UUIDS,
   analyzePR,
   logger: console,

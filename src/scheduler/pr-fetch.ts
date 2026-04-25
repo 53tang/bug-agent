@@ -1,23 +1,16 @@
+import {
+  DEFAULT_BITBUCKET_WORKSPACE,
+  DEFAULT_PR_AUTHOR_UUIDS,
+  PR_FETCH_IGNORED_REPOS,
+} from '../config/constants';
 import { buildTodayUtcRange } from './analysis-state';
 import type { PrData, FetchJsonFn } from './types';
-
-const DEFAULT_WORKSPACE = 'smart_eco-platform';
-const DEFAULT_AUTHOR_UUIDS = [
-  '{aff0f074-2041-4f5b-adde-ff8031c030bc}',
-  '{151633df-1e30-482a-a61b-eb6fe589abe1}',
-  '{17791846-d1f1-47f7-ac76-55f6101d4f82}',
-  '{3c865dd0-c5bf-46a0-836c-ce32fb773b70}',
-  '{5e1bd749-f9a6-49a1-a580-afadbe72fc5b}',
-  '{32c4ef6f-3c67-431b-8fa6-0a4b1c4a77a9}',
-  '{8ad2417d-9d07-4e7d-830b-b88fef044fb7}',
-];
-const IGNORED_REPOS = new Set(['test-user/test-repo']);
 
 export function resolveWorkspace(rawWorkspace: string | undefined): string {
   if (rawWorkspace && String(rawWorkspace).trim()) {
     return String(rawWorkspace).trim();
   }
-  return DEFAULT_WORKSPACE;
+  return DEFAULT_BITBUCKET_WORKSPACE;
 }
 
 function normalizeUuid(raw: string): string {
@@ -39,11 +32,11 @@ export function resolveAuthorUuids(rawAuthorUuids: string | undefined): string[]
       return list;
     }
   }
-  return DEFAULT_AUTHOR_UUIDS;
+  return [...DEFAULT_PR_AUTHOR_UUIDS];
 }
 
 export function isIgnoredRepo(repoFullName: string): boolean {
-  return IGNORED_REPOS.has(String(repoFullName || '').trim());
+  return PR_FETCH_IGNORED_REPOS.has(String(repoFullName || '').trim());
 }
 
 async function fetchAllPages(

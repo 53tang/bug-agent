@@ -11,19 +11,22 @@ import {
   fetchUpdatedPullRequests,
   isIgnoredRepo,
 } from './src/scheduler/pr-fetch';
+import { PR_FETCH_DEFAULT_INTERVAL_MS } from './src/config/constants';
 import type { FetchJsonFn, AnalyzePRFn, Logger } from './src/scheduler/types';
 
 export { getTodayAnalysisDir } from './src/scheduler/analysis-state';
 
-const DEFAULT_FETCH_INTERVAL_MS = 5 * 60 * 1000;
-
-function resolveIntervalMs(rawIntervalMs: string | number | undefined | null): number {
-  if (rawIntervalMs === undefined || rawIntervalMs === null || rawIntervalMs === '') {
-    return DEFAULT_FETCH_INTERVAL_MS;
+function resolveIntervalMs(
+  /** Env string, ms number, or unset — all normalized. */
+  rawIntervalMs: string | number | undefined | null,
+): number {
+  const defaultMs = PR_FETCH_DEFAULT_INTERVAL_MS;
+  if (rawIntervalMs === undefined || rawIntervalMs === null || String(rawIntervalMs).trim() === '') {
+    return defaultMs;
   }
   const value = Number(rawIntervalMs);
   if (!Number.isFinite(value) || value <= 0) {
-    return DEFAULT_FETCH_INTERVAL_MS;
+    return defaultMs;
   }
   return value;
 }
@@ -40,7 +43,7 @@ export function createPrFetchScheduler({
   getAuthHeader,
   fetchJson,
   workspace,
-  intervalMs,
+  rawIntervalMs,
   authorUuids,
   analyzePR,
   logger = console,
@@ -48,7 +51,7 @@ export function createPrFetchScheduler({
   getAuthHeader: () => string;
   fetchJson: FetchJsonFn;
   workspace: string | undefined;
-  intervalMs: string | number | undefined;
+  rawIntervalMs: string | number | undefined;
   authorUuids?: string;
   analyzePR: AnalyzePRFn;
   logger?: Logger;
@@ -70,7 +73,7 @@ export function createPrFetchScheduler({
     logger.log(`[schedule] Initialized with latest update timestamp: ${latestUpdateTimestamp}`);
   }
 
-  const resolvedIntervalMs = resolveIntervalMs(intervalMs);
+  const resolvedIntervalMs = resolveIntervalMs(rawIntervalMs);
 
   const onAnalysisComplete = (prCreatedOn: string): void => {
     const prTimestamp = new Date(prCreatedOn).toISOString();

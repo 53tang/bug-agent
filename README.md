@@ -25,7 +25,7 @@ Copy `.env.example` to `.env` and fill in values (or set the same keys in your s
 - Optional: `BITBUCKET_WORKSPACE` (default: smart_eco-platform)
 - Optional: `PORT` (default: 3000 in code; use `.env` to override, e.g. 3002)
 - Optional: `TAVILY_API_KEY` (web search in recheck step)
-- Optional: `PR_FETCH_INTERVAL_MS` (default: 300000 = 5 minutes)
+- Optional: `PR_FETCH_INTERVAL_MS` in `.env` (e.g. `300000` = 5 min; if unset, the app uses 5 min as fallback)
 - Optional: `PR_AUTHOR_UUIDS` (comma-separated UUIDs; defaults to a built-in list)
 
 ## Run
