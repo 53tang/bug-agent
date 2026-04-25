@@ -8,6 +8,7 @@
     "start": "bun run bug-agent.ts",
     "dev": "bun --watch bug-agent.ts",
     "lint": "eslint .",
+    "lint:changed": "node scripts/lint-changed.mjs",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
